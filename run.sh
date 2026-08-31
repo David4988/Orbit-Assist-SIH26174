@@ -9,6 +9,11 @@ if [ ! -d .venv ]; then
   uv pip install --python .venv/bin/python fastapi "uvicorn[standard]" pytest
 fi
 
+if [ ! -f frontend/public/models/hand_landmarker.task ]; then
+  echo "Vendoring MediaPipe hand-tracking runtime (Live Hand mode)..."
+  ./tools/vendor_mediapipe.sh
+fi
+
 if [ ! -d frontend/dist ]; then
   echo "Building frontend..."
   (cd frontend && npm install && npm run build)

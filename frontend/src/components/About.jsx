@@ -40,25 +40,31 @@ export default function About({ open, onClose }) {
                   <li>Recovery tracking, including steps completed out of order</li>
                   <li>Next-step guidance and voice announcements</li>
                   <li>Timestamped experiment log (text and JSON)</li>
+                  <li>
+                    <strong>Live Hand:</strong> real hand tracking via MediaPipe&rsquo;s pretrained
+                    Hand Landmarker, running entirely in your browser — a real pinch-and-drag
+                    against the virtual boxes produces a genuine action event
+                  </li>
                 </ul>
               </div>
               <div>
-                <span className="eyebrow about-tag about-tag--sim">Simulated for this PoC</span>
+                <span className="eyebrow about-tag about-tag--sim">Simulated / not yet built</span>
                 <ul>
-                  <li>Perception — actions come from a scripted scenario</li>
-                  <li>The feed is a recorded video or canvas replay, not an interpreted one</li>
-                  <li>Live Camera shows your real webcam but does <em>not</em> drive perception</li>
-                  <li>Confidence values are authored, not measured</li>
-                  <li>No trained model, no accuracy has been measured</li>
+                  <li>Demo Replay — actions come from a scripted scenario, not an interpreted feed</li>
+                  <li>Live Hand&rsquo;s boxes are virtual and known by the app, not detected</li>
+                  <li>No object-detection or temporal action-recognition model exists yet</li>
+                  <li>Demo Replay&rsquo;s confidence is authored; Live Hand&rsquo;s is computed from tracking
+                    quality, but no accuracy has been formally measured</li>
+                  <li>No physical-object perception (colour, fiducials or a trained detector) yet</li>
                 </ul>
               </div>
             </div>
 
             <p className="about-note">
-              Perception emits the same structured action events that a real pipeline
-              would produce, so object detection, hand-object interaction and temporal
-              activity recognition can replace that layer without changing the
-              procedural validation, guidance or logging that this demo shows.
+              Perception — scripted or hand-tracked — emits the same structured action events
+              a future pipeline would produce, so physical-object detection, hand-object
+              interaction and temporal activity recognition can replace this layer without
+              changing the procedural validation, guidance or logging shown here.
             </p>
 
             <p className="about-note about-note--muted">

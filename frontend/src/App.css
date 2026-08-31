@@ -48,6 +48,7 @@
   width: 5px; height: 5px; border-radius: 50%;
   background: var(--hold);
 }
+.chip-dot--live { background: var(--navy); }
 
 .conn {
   font-family: var(--mono); font-size: 10.5px;

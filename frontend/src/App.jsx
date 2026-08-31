@@ -43,7 +43,11 @@ export default function App() {
 
   const handleStart = useCallback(async () => {
     prime() // unlock speech synthesis while we still have the user gesture
-    await post('start', { scenario: 'demo_master' })
+    // "scripted" mode lets the clock drive the demo_master scenario;
+    // "live" mode disables that entirely so only real pinch-driven events
+    // from Live Hand reach the engine — see backend/main.py Session.tick.
+    const mode = feedMode === 'camera' ? 'live' : 'scripted'
+    await post('start', { scenario: 'demo_master', mode })
     // Only play the replay video if we are in replay mode and have a video element
     if (feedMode === 'replay') {
       const v = videoRef.current
@@ -52,7 +56,8 @@ export default function App() {
         v.play().catch(() => {})
       }
     }
-    // In camera mode, the wall-clock in Feed drives timing — nothing to play here.
+    // In camera mode, the wall-clock in Feed drives the elapsed display only —
+    // hand interaction events drive the procedure, not the clock.
   }, [post, prime, feedMode])
 
   const handlePause = useCallback(async () => {
@@ -93,6 +98,12 @@ export default function App() {
 
   const fire = useCallback((action) => post('event', { action }), [post])
 
+  /** A real pinch-and-drag against a virtual object, from Live Hand mode. */
+  const handleHandAction = useCallback(
+    (action, confidence) => post('event', { action, confidence, source: 'hand' }),
+    [post]
+  )
+
   const currentIndex = state?.current_index ?? 0
   const nextStep = steps[currentIndex + 1]
   const elapsed = state?.t ?? 0
@@ -111,8 +122,8 @@ export default function App() {
 
         <div className="header-meta">
           <button className="chip" onClick={() => setAboutOpen(true)}>
-            <span className="chip-dot" />
-            Perception · Simulated
+            <span className={`chip-dot ${feedMode === 'camera' ? 'chip-dot--live' : ''}`} />
+            {feedMode === 'camera' ? 'Perception · Hand tracking' : 'Perception · Simulated'}
           </button>
           <span className={`conn ${connected ? 'conn--on' : ''}`}>
             {connected ? 'Linked' : 'Offline'}
@@ -129,6 +140,7 @@ export default function App() {
             lastEvent={lastEvent}
             feedMode={feedMode}
             onFeedModeChange={handleFeedModeChange}
+            onHandAction={handleHandAction}
           />
           <EventLog events={events} />
         </section>

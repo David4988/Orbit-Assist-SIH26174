@@ -31,7 +31,7 @@ class ActionEvent:
     action: str  # "VERB_OBJECT", e.g. "PICK_RED_BOX"
     confidence: float
     timestamp: float  # seconds since run start
-    source: str = "simulated"  # "simulated" | "manual" | "ml" (future)
+    source: str = "simulated"  # "simulated" | "manual" | "hand" (real, browser-side pretrained hand tracking) | "ml" (future)
 
 
 @dataclass

@@ -25,28 +25,39 @@ This is an ideation prototype, and it is explicit about that distinction.
 - Next-step guidance and spoken alerts (browser speech synthesis)
 - Timestamped experiment log in text and JSON
 - Full-state WebSocket dashboard
-- **Live Camera mode** — real local webcam feed via `getUserMedia` (visual only; see below)
 - **Demo Replay with canvas fallback** — animated lab-bench scene when no MP4 is present
+- **Live Hand mode** — real local webcam + real hand tracking (MediaPipe's pretrained
+  Hand Landmarker, running entirely in the browser) driving a genuine pinch-and-drag
+  interaction with a virtual scene; see below
 
-**Simulated for this proof of concept**
+**Simulated / not yet built**
 
-- **Perception.** Action events come from a scripted scenario, not from video analysis.
-- The Live Camera feed shows your real webcam but **does not drive perception** —
-  the scripted scenario fires on the same wall clock regardless of what the camera sees.
-- The canvas replay is a deterministic animation, not a real recording.
-- Confidence values are authored, not measured.
-- **No model has been trained and no accuracy has been measured.**
+- **Demo Replay's perception.** Action events come from a scripted scenario, not
+  from video analysis. The canvas replay is a deterministic animation, not a recording.
+- **Live Hand's objects are virtual.** Their position is known by the app, not
+  perceived from the image — there is no object-detection model. Only the hand
+  itself is genuinely tracked.
+- No temporal action-recognition model exists — "what happened" is decided by
+  pinch state + point-in-shape geometry, not learned.
+- Demo Replay's confidence is authored; Live Hand's is computed from tracking
+  quality (pinch margin, hit-test margin), but **no accuracy has been formally
+  measured** for either mode.
+- No physical-object perception (colour segmentation, fiducial markers, or a
+  trained detector) has been built yet — see `docs/PERCEPTION-PLAN.md`.
 
-The perception layer emits the same structured `ActionEvent` a real pipeline
-would produce, so object detection, hand-object interaction and temporal
-activity recognition can replace it without changing the procedural validation,
-guidance or logging demonstrated here.
+Perception — scripted or hand-tracked — emits the same structured `ActionEvent`
+a future pipeline would produce, so physical-object detection, hand-object
+interaction and temporal activity recognition can replace this layer without
+changing the procedural validation, guidance or logging demonstrated here.
 
 ---
 
 ## Running it
 
-Requires Python 3.11+ and Node 18+. No network access is needed at runtime.
+Requires Python 3.11+ and Node 18+. Network access is needed once, on first
+run, to install dependencies and vendor the ~16 MB hand-tracking runtime and
+model (`tools/vendor_mediapipe.sh`, called automatically by `run.sh`). After
+that, no network access is needed — verified with Wi-Fi disabled.
 
     ./run.sh
 
@@ -83,66 +94,97 @@ the operator console and inject any action manually — useful for questions.
 
 ### Feed modes
 
-The experiment feed panel has two modes, selectable at the top of the feed column:
+The experiment feed panel has two modes, selectable at the top of the feed column.
+**Switching is disabled once a run is in progress** — reset first. This is
+deliberate: the two modes drive the procedure engine from genuinely different
+event sources, and letting them run concurrently mid-experiment is exactly the
+kind of competing-timeline bug this design avoids by construction.
 
-**Demo Replay** (default)
+**Demo Replay** (default) — `PERCEPTION · SIMULATED`
 : Uses `media/experiment.mp4` if present, otherwise renders an animated
   canvas scene — a lab bench with the container, coloured boxes and a hand
   cursor that loosely tracks the scenario timeline. The video's `currentTime`
-  (or wall clock when using the canvas) is the master clock for the scripted
-  scenario.
+  (or wall clock when using the canvas) is the master clock: the backend's
+  `Session` runs in `mode="scripted"`, and every clock tick advances
+  `scenarios/demo_master.json` directly.
 
-**Live Camera**
-: Opens the device's camera via `navigator.mediaDevices.getUserMedia`.
-  Prefers a rear-facing camera on phones; falls back to the front camera on
-  desktops. The webcam feed is visual only — perception remains scripted.
-  Camera access is browser-native and requires no backend involvement.
-  If permission is denied, the UI falls back to Demo Replay cleanly.
+**Live Hand** — `PERCEPTION · HAND TRACKING`
+: Opens the device's camera via `getUserMedia` and runs MediaPipe's pretrained
+  Hand Landmarker against it, entirely client-side. Reach toward a virtual box,
+  pinch to grab it, drag it to a marker, release to place it — each of those
+  produces a real `ActionEvent` (`source: "hand"`) posted to `POST /api/event`.
+  The backend runs in `mode="live"`: the clock only drives the elapsed-time
+  display, and the scripted scenario **never fires** — the procedure engine
+  sees nothing but real interaction. If camera permission is denied or the
+  model fails to load, the UI explains why and offers Demo Replay as one click.
 
-The `PERCEPTION · SIMULATED` label is visible in both modes to keep the
-prototype honest during demonstration.
+Every demo beat — correct step, wrong object, wrong action, skipped step, late
+recovery — falls out of plain pinch-and-drag with no special-casing: wrong
+object is grabbing the blue box; wrong action is dropping red, then picking it
+up again before placing it; skip is doing yellow before red; recovery is going
+back for red afterward. See `frontend/src/perception/interaction.js`.
 
-The recorded feed (`media/experiment.mp4`) is not committed. See
-[`media/README.md`](media/README.md); the app runs without it.
+The recorded feed (`media/experiment.mp4`) and the vendored MediaPipe runtime
+are not committed — see [`media/README.md`](media/README.md) and
+`tools/vendor_mediapipe.sh`. The app runs without either; Demo Replay falls back
+to the canvas animation, and `run.sh` vendors the hand-tracking assets
+automatically on first run.
 
 ---
 
 ## Architecture
 
 ```
-scenario / manual trigger
-          ↓
-     perception.py      "What did I observe?"        (simulated)
-          ↓  ActionEvent { action, confidence, timestamp }
-      engine.py         "Was that correct here?"     (real, deterministic)
-          ↓  Decision
-     guidance.py        "What should I say now?"     (real)
-          ↓
-   log.py  ·  WebSocket  ·  React dashboard
+Demo Replay:  scenario.json / manual trigger ─┐
+Live Hand:    pinch-and-drag (browser) ───────┤
+                                              ↓
+                                       POST /api/event
+                                              ↓  ActionEvent { action, confidence, timestamp, source }
+                                       engine.py         "Was that correct here?"   (real, deterministic)
+                                              ↓  Decision
+                                       guidance.py        "What should I say now?"  (real)
+                                              ↓
+                                   log.py  ·  WebSocket  ·  React dashboard
 ```
 
 ```
-Frontend feed modes
-──────────────────────────────────────────────────────
-Demo Replay  →  <video> currentTime  ─┐
-                     or               ├→  onClock(t)  →  WebSocket  →  ScenarioPlayer
-             →  canvas wall clock    ─┘
-Live Camera  →  getUserMedia stream (visual only)
-             →  performance.now() wall clock  ──────→  onClock(t)  →  WebSocket
+Live Hand, entirely client-side (docs/PERCEPTION-PLAN.md Phase 1-2)
+──────────────────────────────────────────────────────────────────
+getUserMedia ──► handTracker.js ──► pinch.js ──► interaction.js ──► POST /api/event
+ (real camera)   MediaPipe Hand      hysteresis +   the ONLY module     source: "hand"
+                 Landmarker,         3-frame         allowed to emit
+                 pretrained,         debounce         an ActionEvent
+                 CPU, offline
+                                        scene.js — known virtual object/zone
+                                        geometry (hit-testing only; no CV)
+```
+
+```
+Backend clock isolation (backend/main.py Session)
+──────────────────────────────────────────────────────────────────
+mode="scripted"  →  clock tick advances scenarios/demo_master.json directly
+mode="live"      →  clock tick updates only the elapsed-time display;
+                     the scripted scenario never fires — every event comes
+                     from POST /api/event (Live Hand) or the operator console
 ```
 
 The engine is pure — no I/O, no wall clock, no framework imports — which is why
 it can be verified by six fast tests and why the demo's correctness never
-depends on the video or camera.
+depends on the video or camera. Live Hand and Demo Replay are mutually
+exclusive per run (the feed-mode toggle disables once running) specifically so
+the engine only ever sees one coherent event source at a time.
 
 | Prototype | Production system |
 |---|---|
-| `perception.py` replays a scenario | CV pipeline: detection, hand-object interaction, temporal model |
+| `perception.py` replays a scenario | — |
+| **`interaction.js` + real MediaPipe hand tracking** | **already the real thing** for hand tracking; object perception is next |
+| virtual box/zone coordinates (`scene.js`) | colour segmentation, fiducials, or a trained detector on physical boxes |
 | canvas animation / `media/experiment.mp4` | fixed payload camera |
-| `getUserMedia` webcam (visual only) | same camera feed, interpreted by CV/ML |
-| video/wall-clock position | frame timestamps |
 | local WebSocket to the dashboard | same, plus an encoder branch for IP streaming and local storage |
 | `engine.py` | **unchanged** — this is the point |
+
+See [`docs/PERCEPTION-PLAN.md`](docs/PERCEPTION-PLAN.md) for the full phased
+roadmap from here to physical objects and temporal action recognition.
 
 ### Layout
 
@@ -152,13 +194,36 @@ experiments/  step definitions (see note below)
 scenarios/    six scripted scenarios; demo_master.json drives the demo
 frontend/
   src/
-    components/   Feed · Procedure · Timeline · EventLog · Summary · DemoPanel · About
-    hooks/        useSession (WebSocket) · useSpeech (browser TTS)
+    components/    Feed · HandStage · Procedure · Timeline · EventLog · Summary · DemoPanel · About
+    perception/    handTracker · pinch · scene · interaction  (Live Hand — browser-side only)
+    hooks/         useSession (WebSocket) · useSpeech (browser TTS)
+  public/
+    mediapipe/     vendored WASM runtime (not committed — tools/vendor_mediapipe.sh)
+    models/        vendored hand_landmarker.task (not committed — same script)
 media/        recorded experiment feed (not committed)
 runs/         generated logs, one directory per run
 tests/        six engine tests
-docs/         problem statement, environment notes, plan
+tools/        record_demo.sh · vendor_mediapipe.sh
+docs/         problem statement, environment notes, plan, perception roadmap
 ```
+
+### Hand tracking (Live Hand mode)
+
+MediaPipe's pretrained Hand Landmarker (`@mediapipe/tasks-vision`), vendored
+locally and run on CPU, entirely in the browser — no training, no dataset, no
+network call at runtime. It returns 21 hand landmarks per frame; everything
+above that is plain geometry:
+
+- **Pinch** = thumb-to-index distance, normalized by wrist-to-middle-knuckle
+  distance so it's depth- and scale-invariant, with hysteresis (close at 0.32,
+  open at 0.45) and a 3-frame debounce so it doesn't flicker.
+- **Hit-testing** = point-in-rect against known virtual object/zone coordinates
+  (`perception/scene.js`) — no CV needed, since the objects are virtual.
+- **Confidence** is genuinely computed (hand-detection score × pinch margin ×
+  hit-test margin), not authored — unlike Demo Replay's scripted confidence.
+
+Full rationale, the phased roadmap to physical objects, and why each of those
+design choices was made over the alternatives: `docs/PERCEPTION-PLAN.md`.
 
 ### Voice guidance
 

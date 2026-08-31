@@ -1,0 +1,20 @@
+.hand-stage-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.hand-stage-status {
+  position: absolute;
+  left: 12px;
+  top: 12px;
+  padding: 5px 9px;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+}
+.hand-stage-status .eyebrow { color: var(--ink-2); }
+.hand-stage-status--ok { color: var(--go); }
+.hand-stage-status--error { color: var(--stop); }

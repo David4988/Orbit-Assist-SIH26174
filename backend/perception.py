@@ -59,9 +59,16 @@ class ScenarioPlayer:
         return out
 
 
-def manual_event(action: str, t: float, confidence: float = 0.9) -> ActionEvent:
-    """Operator-triggered event, used as a live backup during Q&A."""
-    return ActionEvent(action=action, confidence=confidence, timestamp=t, source="manual")
+def manual_event(
+    action: str, t: float, confidence: float = 0.9, source: str = "manual"
+) -> ActionEvent:
+    """An externally produced event delivered through POST /api/event.
+
+    Two real callers share this path: the hidden operator console
+    (source="manual", a judge-question backup) and Live Hand mode's
+    interaction FSM (source="hand", a real pinch-and-drag against a known
+    virtual object, observed by a pretrained hand-tracking model)."""
+    return ActionEvent(action=action, confidence=confidence, timestamp=t, source=source)
 
 
 def list_scenarios() -> list[str]:

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import HandStage from './HandStage'
 import './Feed.css'
 
 const EASE = [0.22, 1, 0.36, 1]
@@ -273,7 +274,7 @@ function DemoCanvas({ status, canvasRef }) {
    onClock: reports currentTime (seconds) to the WebSocket
    videoRef: the replay <video> element ref (owned by App for play/pause)
 ───────────────────────────────────────────────────────────────────────────── */
-export default function Feed({ status, onClock, videoRef, lastEvent, feedMode, onFeedModeChange }) {
+export default function Feed({ status, onClock, videoRef, lastEvent, feedMode, onFeedModeChange, onHandAction }) {
   // ── replay video state ──
   const [hasVideo, setHasVideo] = useState(null) // null = not yet tried
   const fallbackStart = useRef(null)
@@ -422,11 +423,16 @@ export default function Feed({ status, onClock, videoRef, lastEvent, feedMode, o
   return (
     <section className="feed">
       {/* ── mode toggle ── */}
+      {/* Disabled mid-run: switching feeds while the procedure is live would
+          mean two independent event sources (the scripted clock and a real
+          pinch) could both drive the engine at once. Reset first. */}
       <div className="feed-modes" role="group" aria-label="Feed mode">
         <button
           className={`feed-mode-btn ${feedMode === 'replay' ? 'feed-mode-btn--active' : ''}`}
           onClick={() => onFeedModeChange('replay')}
           aria-pressed={feedMode === 'replay'}
+          disabled={status !== 'idle'}
+          title={status !== 'idle' ? 'Reset the experiment to switch feeds' : undefined}
         >
           Demo Replay
         </button>
@@ -434,8 +440,10 @@ export default function Feed({ status, onClock, videoRef, lastEvent, feedMode, o
           className={`feed-mode-btn ${feedMode === 'camera' ? 'feed-mode-btn--active' : ''}`}
           onClick={() => onFeedModeChange('camera')}
           aria-pressed={feedMode === 'camera'}
+          disabled={status !== 'idle'}
+          title={status !== 'idle' ? 'Reset the experiment to switch feeds' : undefined}
         >
-          Live Camera
+          Live Hand
         </button>
       </div>
 
@@ -485,6 +493,14 @@ export default function Feed({ status, onClock, videoRef, lastEvent, feedMode, o
           style={{ display: feedMode === 'camera' && showCameraFeed ? 'block' : 'none' }}
         />
 
+        {/* Camera: hand tracking + virtual scene overlay */}
+        <HandStage
+          videoRef={camVideoRef}
+          active={showCameraFeed}
+          emitEnabled={status === 'running'}
+          onAction={onHandAction}
+        />
+
         {/* Camera: connecting state */}
         <AnimatePresence>
           {showCameraConnecting && (
@@ -511,8 +527,11 @@ export default function Feed({ status, onClock, videoRef, lastEvent, feedMode, o
               exit={{ opacity: 0 }}
               transition={{ duration: 0.2 }}
             >
-              <span className="eyebrow">Live Camera</span>
-              <p className="feed-camera-msg">Camera access lets you use your device's camera as the experiment feed.</p>
+              <span className="eyebrow">Live Hand</span>
+              <p className="feed-camera-msg">
+                Reach toward the virtual boxes with your own hand — a pretrained hand-tracking
+                model turns a pinch-and-drag into a real action event.
+              </p>
               <button className="btn btn--primary feed-camera-cta" onClick={startCamera}>
                 Start Camera
               </button>
@@ -577,9 +596,14 @@ export default function Feed({ status, onClock, videoRef, lastEvent, feedMode, o
           )}
         </div>
 
-        {/* Perception label — top right — visible always */}
+        {/* Perception label — top right — visible always, and precise:
+            Live Hand's hand tracking is a real pretrained model; the boxes
+            it interacts with are still virtual/known, not perceived, and
+            the procedure judgement underneath is deterministic, not ML. */}
         <div className="feed-perception-label">
-          <span className="code">PERCEPTION · SIMULATED</span>
+          <span className="code">
+            {feedMode === 'camera' ? 'PERCEPTION · HAND TRACKING' : 'PERCEPTION · SIMULATED'}
+          </span>
         </div>
       </div>
 

@@ -32,6 +32,11 @@
   color: var(--ink);
   box-shadow: 0 1px 3px rgba(22, 25, 28, 0.08), 0 0 0 1px var(--rule);
 }
+.feed-mode-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+.feed-mode-btn:disabled:hover { color: var(--ink-3); }
 
 /* ─── frame ──────────────────────────────────────────── */
 .feed-frame {

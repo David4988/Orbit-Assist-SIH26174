@@ -40,6 +40,7 @@ class Session:
     def __init__(self) -> None:
         self.state = engine.reset()
         self.player = ScenarioPlayer("demo_master")
+        self.mode = "scripted"  # "scripted" (clock drives the scenario) | "live" (hand-driven events only)
         self.log: RunLog | None = None
         self.clients: set[WebSocket] = set()
         self.speech_queue: list[str] = []
@@ -53,7 +54,8 @@ class Session:
             "experiment": EXPERIMENT_NAME,
             "scenario": self.player.name,
             "run_id": self.log.run_id if self.log else None,
-            "perception": "SIMULATED",
+            "mode": self.mode,
+            "perception": "HAND TRACKING" if self.mode == "live" else "SIMULATED",
             "state": self.state.to_dict(),
             "speak": speech,
         }
@@ -75,11 +77,12 @@ class Session:
 
     # ---------- control ----------
 
-    def start(self, scenario: str = "demo_master") -> None:
+    def start(self, scenario: str = "demo_master", mode: str = "scripted") -> None:
+        self.mode = mode
         self.player.load(scenario)
         self.player.reset()
         self.state = engine.start(0.0)
-        self.log = RunLog()
+        self.log = RunLog(mode=mode)
         self.say(guidance.start_speech(self.state))
 
     def pause(self) -> None:
@@ -134,10 +137,19 @@ class Session:
             self.log.finalise(self.state)
 
     def tick(self, t: float) -> bool:
-        """Advance the clock. Returns True if anything changed."""
+        """Advance the clock. Returns True if anything changed.
+
+        In "live" mode the clock only drives the elapsed-time display -
+        events come exclusively from POST /api/event (the hand interaction
+        FSM). This is what keeps the two timelines from colliding: without
+        it, a real PICK_RED_BOX from a pinch-and-drag would land on top of
+        the scripted scenario still firing its own PICK_RED_BOX off the
+        wall clock."""
         if self.state.status != "running":
             return False
         self.state.t = t
+        if self.mode != "scripted":
+            return False
         events = self.player.advance_to(t)
         for e in events:
             self.apply(e)
@@ -152,8 +164,9 @@ session = Session()
 @app.post("/api/start")
 async def api_start(payload: dict | None = None):
     scenario = (payload or {}).get("scenario", "demo_master")
+    mode = (payload or {}).get("mode", "scripted")
     async with session.lock:
-        session.start(scenario)
+        session.start(scenario, mode=mode)
         await session.broadcast()
     return {"ok": True, "run_id": session.log.run_id if session.log else None}
 
@@ -184,13 +197,19 @@ async def api_reset():
 
 @app.post("/api/event")
 async def api_event(payload: dict):
-    """Manually inject an ActionEvent - the live backup during Q&A."""
+    """Inject an ActionEvent produced outside the scripted scenario.
+
+    Two real sources use this: the hidden operator console (source="manual")
+    and, in Live Hand mode, the browser-side pinch-and-drag interaction FSM
+    (source="hand") - perception that never leaves the client, reporting
+    only the resulting action."""
     async with session.lock:
         session.apply(
             manual_event(
                 action=payload["action"],
                 t=float(payload.get("t", session.state.t)),
                 confidence=float(payload.get("confidence", 0.9)),
+                source=payload.get("source", "manual"),
             )
         )
         await session.broadcast()

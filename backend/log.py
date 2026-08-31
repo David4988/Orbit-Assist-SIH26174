@@ -22,9 +22,17 @@ OUTCOME = {
 }
 
 
+PERCEPTION_LINE = {
+    "scripted": "Perception: SIMULATED (scripted scenario; not a trained model)",
+    "live": "Perception: HAND TRACKING (pretrained hand landmarks; virtual objects, "
+    "no object detection; procedure validation is deterministic, not ML)",
+}
+
+
 class RunLog:
-    def __init__(self, run_id: str | None = None):
+    def __init__(self, run_id: str | None = None, mode: str = "scripted"):
         self.run_id = run_id or datetime.now().strftime("%Y%m%d-%H%M%S")
+        self.mode = mode
         self.dir = RUNS_DIR / self.run_id
         self.dir.mkdir(parents=True, exist_ok=True)
         self.rows: list[dict] = []
@@ -45,7 +53,7 @@ class RunLog:
             "BAS Sample Experiment - PoC Representation\n"
             f"Run ID    : {self.run_id}\n"
             f"Started   : {self.started.strftime('%Y-%m-%d %H:%M:%S')}\n"
-            "Perception: SIMULATED (scripted scenario; not a trained model)\n"
+            f"{PERCEPTION_LINE.get(self.mode, PERCEPTION_LINE['scripted'])}\n"
             + "-" * 64
             + "\n"
         )

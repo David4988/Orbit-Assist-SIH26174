@@ -22,3 +22,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Vendored ML runtime + model - large binaries, reproducible via
+# tools/vendor_mediapipe.sh. See that script and docs/PERCEPTION-PLAN.md.
+public/mediapipe/
+public/models/
