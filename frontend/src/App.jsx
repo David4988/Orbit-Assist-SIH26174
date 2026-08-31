@@ -1,0 +1,193 @@
+import { AnimatePresence, motion } from 'framer-motion'
+import { useCallback, useEffect, useRef, useState } from 'react'
+
+import DemoPanel from './components/DemoPanel'
+import EventLog from './components/EventLog'
+import Feed from './components/Feed'
+import Procedure from './components/Procedure'
+import Summary from './components/Summary'
+import Timeline from './components/Timeline'
+import About from './components/About'
+import { useSession } from './hooks/useSession'
+import { useSpeech } from './hooks/useSpeech'
+import './App.css'
+
+const EASE = [0.22, 1, 0.36, 1]
+
+export default function App() {
+  const { speak, prime, cancel, enabled, setEnabled } = useSpeech()
+  const { snapshot, connected, sendClock, post } = useSession(speak)
+  const [demoOpen, setDemoOpen] = useState(false)
+  const [aboutOpen, setAboutOpen] = useState(false)
+  const videoRef = useRef(null)
+
+  const state = snapshot?.state
+  const status = state?.status ?? 'idle'
+  const steps = state?.steps ?? []
+  const events = state?.events ?? []
+
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === '`' || e.key === '~') setDemoOpen((v) => !v)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+
+  const handleStart = useCallback(async () => {
+    prime() // unlock speech synthesis while we still have the user gesture
+    await post('start', { scenario: 'demo_master' })
+    const v = videoRef.current
+    if (v) {
+      v.currentTime = 0
+      v.play().catch(() => {})
+    }
+  }, [post, prime])
+
+  const handlePause = useCallback(async () => {
+    videoRef.current?.pause()
+    await post('pause')
+  }, [post])
+
+  const handleResume = useCallback(async () => {
+    await post('resume')
+    videoRef.current?.play().catch(() => {})
+  }, [post])
+
+  const handleReset = useCallback(async () => {
+    cancel()
+    const v = videoRef.current
+    if (v) { v.pause(); v.currentTime = 0 }
+    await post('reset')
+  }, [post, cancel])
+
+  const fire = useCallback((action) => post('event', { action }), [post])
+
+  const currentIndex = state?.current_index ?? 0
+  const nextStep = steps[currentIndex + 1]
+  const elapsed = state?.t ?? 0
+  const lastEvent = events[0]
+
+  return (
+    <div className="app">
+      <header className="header">
+        <div className="brand">
+          <span className="brand-mark" aria-hidden="true" />
+          <div>
+            <h1>Orbit Assist</h1>
+            <p>Onboard procedural intelligence for scientific operations</p>
+          </div>
+        </div>
+
+        <div className="header-meta">
+          <button className="chip" onClick={() => setAboutOpen(true)}>
+            <span className="chip-dot" />
+            Perception · Simulated
+          </button>
+          <span className={`conn ${connected ? 'conn--on' : ''}`}>
+            {connected ? 'Linked' : 'Offline'}
+          </span>
+        </div>
+      </header>
+
+      <main className="main">
+        <section className="col col--feed">
+          <Feed
+            status={status}
+            onClock={sendClock}
+            videoRef={videoRef}
+            lastEvent={lastEvent}
+          />
+          <EventLog events={events} />
+        </section>
+
+        <section className="col col--procedure">
+          <div className="proc-head">
+            <div>
+              <span className="eyebrow">Procedure</span>
+              <h2>{snapshot?.experiment ?? 'BAS Sample Experiment'}</h2>
+            </div>
+            <div className="proc-clock">
+              <span className="eyebrow">Elapsed</span>
+              <span className="num proc-time">{formatTime(elapsed)}</span>
+            </div>
+          </div>
+
+          <Timeline steps={steps} currentIndex={currentIndex} status={status} />
+
+          <AnimatePresence mode="wait">
+            {status === 'complete' ? (
+              <motion.div key="summary" className="proc-body">
+                <Summary
+                  steps={steps}
+                  events={events}
+                  duration={elapsed}
+                  runId={snapshot?.run_id}
+                />
+              </motion.div>
+            ) : (
+              <motion.div
+                key="procedure"
+                className="proc-body"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.3, ease: EASE }}
+              >
+                <Procedure
+                  steps={steps}
+                  currentIndex={currentIndex}
+                  status={status}
+                  alert={state?.alert}
+                />
+                {status !== 'idle' && nextStep && (
+                  <div className="up-next">
+                    <span className="eyebrow">Up next</span>
+                    <span className="up-next-text">{nextStep.instruction}</span>
+                  </div>
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </section>
+      </main>
+
+      <footer className="controls">
+        <div className="controls-left">
+          {status === 'idle' && (
+            <button className="btn btn--primary" onClick={handleStart}>
+              Start experiment
+            </button>
+          )}
+          {status === 'running' && (
+            <button className="btn" onClick={handlePause}>Pause</button>
+          )}
+          {status === 'paused' && (
+            <button className="btn btn--primary" onClick={handleResume}>Resume</button>
+          )}
+          {status !== 'idle' && (
+            <button className="btn btn--ghost" onClick={handleReset}>Reset</button>
+          )}
+        </div>
+
+        <div className="controls-right">
+          <button
+            className={`btn btn--ghost ${enabled ? '' : 'btn--muted'}`}
+            onClick={() => { setEnabled(!enabled); if (enabled) cancel() }}
+          >
+            {enabled ? 'Voice on' : 'Voice off'}
+          </button>
+          <a className="btn btn--ghost" href="/api/log" download>Download log</a>
+        </div>
+      </footer>
+
+      <DemoPanel open={demoOpen} onClose={() => setDemoOpen(false)} onFire={fire} />
+      <About open={aboutOpen} onClose={() => setAboutOpen(false)} />
+    </div>
+  )
+}
+
+function formatTime(seconds) {
+  const m = Math.floor(seconds / 60)
+  const s = Math.floor(seconds % 60)
+  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+}

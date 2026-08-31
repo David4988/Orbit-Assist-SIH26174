@@ -117,6 +117,19 @@ def start_speech(state: RunState) -> str:
     return f"Experiment started. Step one: {nxt.lower()}." if nxt else "Experiment started."
 
 
+def outstanding_skipped(state: RunState):
+    """The first step still marked skipped, if any. Guidance points the
+    operator back at unfinished business before anything else."""
+    for i, s in enumerate(state.steps):
+        if s.status == "skipped":
+            return i + 1, s
+    return None
+
+
 def resume_speech(state: RunState) -> str:
+    pending = outstanding_skipped(state)
+    if pending:
+        n, step = pending
+        return f"Resuming. Step {n} is still outstanding: {step.instruction.lower()}."
     nxt = next_instruction(state)
     return f"Resuming. {nxt}." if nxt else "Resuming."

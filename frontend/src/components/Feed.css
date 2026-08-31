@@ -1,0 +1,76 @@
+.feed { display: flex; flex-direction: column; gap: 18px; }
+
+.feed-frame {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  background: #eceee9;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.feed-video { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+.feed-placeholder {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 8px;
+  background: repeating-linear-gradient(
+    45deg, #f1f3ef, #f1f3ef 12px, #eceee9 12px, #eceee9 24px
+  );
+  color: var(--ink-3);
+}
+.feed-placeholder p { margin: 0; font-size: 13.5px; }
+
+.feed-paused {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(246, 247, 245, 0.82);
+}
+.feed-paused .eyebrow { font-size: 12px; color: var(--ink-2); }
+
+.feed-badge {
+  position: absolute;
+  left: 12px; bottom: 12px;
+  display: flex; align-items: center; gap: 7px;
+  padding: 5px 9px;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+}
+.feed-badge .code { font-size: 10.5px; color: var(--ink-2); }
+
+.feed-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--ink-3); }
+.feed-dot[data-status='running'] { background: var(--go); }
+.feed-dot[data-status='paused']  { background: var(--hold); }
+.feed-dot[data-status='complete'] { background: var(--navy); }
+
+.observed { display: flex; flex-direction: column; gap: 9px; }
+.observed-row {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 2px;
+}
+.observed-action {
+  font-family: var(--mono);
+  font-size: 16px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--ink);
+}
+.observed-row--empty .observed-action { color: var(--ink-3); }
+.observed-conf {
+  font-family: var(--mono);
+  font-size: 15px;
+  color: var(--ink);
+  display: flex; align-items: baseline; gap: 7px;
+}
+.observed-conf em {
+  font-family: var(--sans);
+  font-style: normal;
+  font-size: 10.5px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}

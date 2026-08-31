@@ -1,0 +1,31 @@
+.timeline { display: flex; gap: 6px; }
+
+.tl-seg { flex: 1; display: flex; flex-direction: column; gap: 6px; }
+
+.tl-bar {
+  height: 3px;
+  background: var(--rule);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.tl-fill {
+  height: 100%;
+  width: 100%;
+  transform-origin: left center;
+  background: var(--ink-3);
+  border-radius: 2px;
+}
+
+.tl-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  color: var(--ink-3);
+}
+
+.tl-seg--go .tl-fill { background: var(--go); }
+.tl-seg--hold .tl-fill { background: var(--hold); }
+.tl-seg--current .tl-fill { background: var(--navy); }
+.tl-seg--current .tl-label { color: var(--navy); }
+.tl-seg--go .tl-label { color: var(--ink-2); }
+.tl-seg--hold .tl-label { color: var(--hold); }

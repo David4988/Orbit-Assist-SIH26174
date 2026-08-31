@@ -1,0 +1,41 @@
+.log { display: flex; flex-direction: column; gap: 10px; min-height: 0; }
+
+.log-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding-bottom: 9px;
+  border-bottom: 1px solid var(--rule);
+}
+.log-count { color: var(--ink-2); }
+
+.log-rows {
+  display: flex; flex-direction: column;
+  overflow-y: auto;
+  max-height: 210px;
+}
+
+.log-empty {
+  font-size: 13px;
+  color: var(--ink-3);
+  padding: 14px 0;
+}
+
+.log-row {
+  display: grid;
+  grid-template-columns: 62px 1fr auto;
+  gap: 12px;
+  align-items: baseline;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--rule-soft);
+  font-family: var(--mono);
+  font-size: 12px;
+}
+.log-row:last-child { border-bottom: none; }
+
+.log-time { color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.log-action { color: var(--ink); letter-spacing: 0.03em; }
+.log-outcome { font-size: 10.5px; letter-spacing: 0.08em; color: var(--ink-3); }
+
+.log-row--go .log-outcome   { color: var(--go); }
+.log-row--hold .log-outcome { color: var(--hold); }
+.log-row--stop .log-outcome { color: var(--stop); }
+.log-row--stop .log-action  { color: var(--stop); }

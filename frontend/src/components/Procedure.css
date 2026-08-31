@@ -1,0 +1,143 @@
+.procedure {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.step {
+  display: grid;
+  grid-template-columns: 52px 34px 1fr;
+  gap: 0 14px;
+  align-items: start;
+  padding: 14px 20px 14px 0;
+  border-bottom: 1px solid var(--rule-soft);
+  position: relative;
+  transition: opacity 0.2s var(--ease);
+}
+.step:last-child { border-bottom: none; }
+
+/* Left margin where the completion time is stamped in. */
+.step-gutter {
+  text-align: right;
+  padding-top: 3px;
+}
+.step-stamp {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-3);
+  letter-spacing: 0.02em;
+}
+
+.step-index {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding-top: 2px;
+}
+.step-number {
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ink-3);
+  letter-spacing: 0.04em;
+}
+.step-mark { display: inline-flex; }
+.mark-icon { width: 13px; height: 13px; display: block; }
+
+.step-instruction {
+  font-size: 15px;
+  color: var(--ink-2);
+  letter-spacing: -0.005em;
+}
+
+.step-detail { margin-top: 5px; }
+.step-note {
+  margin-top: 6px;
+  font-size: 12.5px;
+  color: var(--go);
+}
+
+/* ---------- pending ---------- */
+.step--pending .step-instruction { color: var(--ink-3); }
+
+/* ---------- completed ---------- */
+.step--done .step-mark,
+.step--done_late .step-mark { color: var(--go); }
+.step--done .step-instruction { color: var(--ink-2); }
+.step--done_late .step-instruction { color: var(--ink-2); }
+
+/* ---------- skipped: stays open, amber, unfinished business ---------- */
+.step--skipped { background: var(--hold-wash); }
+.step--skipped::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: -1px;
+  width: 2px;
+  background: var(--hold);
+}
+.step--skipped .step-mark { color: var(--hold); }
+.step--skipped .step-instruction { color: var(--ink); }
+
+/* ---------- current: the only elevated element on the page ---------- */
+.step--current {
+  background: var(--card);
+  box-shadow: var(--shadow);
+  border-radius: 6px;
+  border-bottom-color: transparent;
+  padding: 20px 20px 20px 0;
+  margin: 6px 0;
+  z-index: 1;
+}
+.step--current::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 2px;
+  background: var(--navy);
+  border-radius: 2px 0 0 2px;
+}
+.step--current .step-instruction {
+  font-size: 25px;
+  line-height: 1.22;
+  color: var(--ink);
+  font-weight: 500;
+  letter-spacing: -0.018em;
+}
+.step--current .step-number { color: var(--navy); }
+
+/* Error states recolour the current step's rule rather than raising a
+   separate banner — the correction stays where the eye already is. */
+.step--alert-wrong_object::before,
+.step--alert-wrong_action::before { background: var(--stop); }
+.step--alert-unknown::before { background: var(--hold); }
+
+.step-correction {
+  margin-top: 12px;
+  padding-top: 11px;
+  border-top: 1px solid var(--rule);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.step-correction-head {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--stop);
+}
+.step--alert-unknown .step-correction-head { color: var(--hold); }
+.step-correction--skipped .step-correction-head { color: var(--hold); }
+.step-correction-detail {
+  font-size: 13.5px;
+  color: var(--ink-2);
+  line-height: 1.45;
+}
+.step-correction--skipped {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: none;
+}
+
+.procedure--idle .step--current { box-shadow: none; }
