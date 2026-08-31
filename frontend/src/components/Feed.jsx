@@ -35,8 +35,10 @@ export default function Feed({ status, onClock, videoRef, lastEvent, onVideoMiss
       if (hasVideo && v && !Number.isNaN(v.duration)) {
         t = v.currentTime
       } else if (status === 'running') {
-        if (fallbackStart.current == null) fallbackStart.current = performance.now() / 1000 - last
-        t = performance.now() / 1000 - fallbackStart.current
+        const now = performance.now() / 1000
+        // Resume from wherever the clock left off rather than jumping to zero.
+        if (fallbackStart.current == null) fallbackStart.current = now - Math.max(last, 0)
+        t = now - fallbackStart.current
       } else if (status === 'idle') {
         fallbackStart.current = null
         last = -1
