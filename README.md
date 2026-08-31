@@ -22,14 +22,18 @@ This is an ideation prototype, and it is explicit about that distinction.
 - Deterministic procedure engine — sequence validation with six classification rules
 - Detection of skipped steps, wrong objects, wrong actions and unrecognised actions
 - Recovery tracking, including steps completed out of order
-- Next-step guidance and spoken alerts
+- Next-step guidance and spoken alerts (browser speech synthesis)
 - Timestamped experiment log in text and JSON
 - Full-state WebSocket dashboard
+- **Live Camera mode** — real local webcam feed via `getUserMedia` (visual only; see below)
+- **Demo Replay with canvas fallback** — animated lab-bench scene when no MP4 is present
 
 **Simulated for this proof of concept**
 
 - **Perception.** Action events come from a scripted scenario, not from video analysis.
-- The feed is a recorded video, not an interpreted one.
+- The Live Camera feed shows your real webcam but **does not drive perception** —
+  the scripted scenario fires on the same wall clock regardless of what the camera sees.
+- The canvas replay is a deterministic animation, not a real recording.
 - Confidence values are authored, not measured.
 - **No model has been trained and no accuracy has been measured.**
 
@@ -77,8 +81,29 @@ out over roughly 75 seconds and exercises every beat:
 Pause and Resume are driven live from the controls. Press <kbd>`</kbd> to open
 the operator console and inject any action manually — useful for questions.
 
-The recorded feed is not committed. See [`media/README.md`](media/README.md);
-the app runs without it.
+### Feed modes
+
+The experiment feed panel has two modes, selectable at the top of the feed column:
+
+**Demo Replay** (default)
+: Uses `media/experiment.mp4` if present, otherwise renders an animated
+  canvas scene — a lab bench with the container, coloured boxes and a hand
+  cursor that loosely tracks the scenario timeline. The video's `currentTime`
+  (or wall clock when using the canvas) is the master clock for the scripted
+  scenario.
+
+**Live Camera**
+: Opens the device's camera via `navigator.mediaDevices.getUserMedia`.
+  Prefers a rear-facing camera on phones; falls back to the front camera on
+  desktops. The webcam feed is visual only — perception remains scripted.
+  Camera access is browser-native and requires no backend involvement.
+  If permission is denied, the UI falls back to Demo Replay cleanly.
+
+The `PERCEPTION · SIMULATED` label is visible in both modes to keep the
+prototype honest during demonstration.
+
+The recorded feed (`media/experiment.mp4`) is not committed. See
+[`media/README.md`](media/README.md); the app runs without it.
 
 ---
 
@@ -96,20 +121,26 @@ scenario / manual trigger
    log.py  ·  WebSocket  ·  React dashboard
 ```
 
+```
+Frontend feed modes
+──────────────────────────────────────────────────────
+Demo Replay  →  <video> currentTime  ─┐
+                     or               ├→  onClock(t)  →  WebSocket  →  ScenarioPlayer
+             →  canvas wall clock    ─┘
+Live Camera  →  getUserMedia stream (visual only)
+             →  performance.now() wall clock  ──────→  onClock(t)  →  WebSocket
+```
+
 The engine is pure — no I/O, no wall clock, no framework imports — which is why
 it can be verified by six fast tests and why the demo's correctness never
-depends on the video.
-
-**The video element is the master clock.** The frontend reports
-`video.currentTime` over the WebSocket; the backend advances the scenario and
-engine to that position. Observed actions therefore always line up with what is
-on screen, and pausing the video stops the run without any separate pause logic.
+depends on the video or camera.
 
 | Prototype | Production system |
 |---|---|
 | `perception.py` replays a scenario | CV pipeline: detection, hand-object interaction, temporal model |
-| `media/experiment.mp4` | fixed payload camera |
-| video playback position | frame timestamps |
+| canvas animation / `media/experiment.mp4` | fixed payload camera |
+| `getUserMedia` webcam (visual only) | same camera feed, interpreted by CV/ML |
+| video/wall-clock position | frame timestamps |
 | local WebSocket to the dashboard | same, plus an encoder branch for IP streaming and local storage |
 | `engine.py` | **unchanged** — this is the point |
 
@@ -119,12 +150,23 @@ on screen, and pausing the video stops the run without any separate pause logic.
 backend/      models · experiment · engine · perception · guidance · log · main
 experiments/  step definitions (see note below)
 scenarios/    six scripted scenarios; demo_master.json drives the demo
-frontend/     React + Vite + Framer Motion
+frontend/
+  src/
+    components/   Feed · Procedure · Timeline · EventLog · Summary · DemoPanel · About
+    hooks/        useSession (WebSocket) · useSpeech (browser TTS)
 media/        recorded experiment feed (not committed)
 runs/         generated logs, one directory per run
 tests/        six engine tests
 docs/         problem statement, environment notes, plan
 ```
+
+### Voice guidance
+
+Browser speech synthesis (`SpeechSynthesisAPI`) — no external TTS dependency.
+Prefers macOS/iOS voices (Samantha, Daniel, Karen, Serena). The synthesis queue
+is cancelled before each new utterance to prevent simultaneous voices.
+Toggling "Voice off" flushes the queue immediately; no speech is heard
+after that point.
 
 ---
 
