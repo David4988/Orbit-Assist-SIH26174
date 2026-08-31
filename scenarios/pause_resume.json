@@ -1,0 +1,9 @@
+{
+  "name": "pause_resume",
+  "description": "Short run used to exercise pause and resume behaviour.",
+  "events": [
+    {"t": 3.0,  "action": "OPEN_CONTAINER",    "confidence": 0.96},
+    {"t": 9.0,  "action": "PICK_RED_BOX",      "confidence": 0.94},
+    {"t": 20.0, "action": "PLACE_RED_BOX",     "confidence": 0.93}
+  ]
+}

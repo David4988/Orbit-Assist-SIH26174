@@ -1,0 +1,10 @@
+{
+  "name": "wrong_action",
+  "description": "Operator re-picks the red box when it should be placed.",
+  "events": [
+    {"t": 3.0,  "action": "OPEN_CONTAINER",    "confidence": 0.96},
+    {"t": 8.0,  "action": "PICK_RED_BOX",      "confidence": 0.94},
+    {"t": 13.0, "action": "PICK_RED_BOX",      "confidence": 0.81},
+    {"t": 18.0, "action": "PLACE_RED_BOX",     "confidence": 0.93}
+  ]
+}

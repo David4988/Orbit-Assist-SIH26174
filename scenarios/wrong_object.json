@@ -1,0 +1,10 @@
+{
+  "name": "wrong_object",
+  "description": "Operator reaches for the blue distractor at step 2, then recovers.",
+  "events": [
+    {"t": 3.0,  "action": "OPEN_CONTAINER",    "confidence": 0.96},
+    {"t": 8.0,  "action": "PICK_BLUE_BOX",     "confidence": 0.89},
+    {"t": 13.0, "action": "PICK_RED_BOX",      "confidence": 0.94},
+    {"t": 18.0, "action": "PLACE_RED_BOX",     "confidence": 0.93}
+  ]
+}

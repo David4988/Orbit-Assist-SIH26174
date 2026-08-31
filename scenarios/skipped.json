@@ -1,0 +1,11 @@
+{
+  "name": "skipped",
+  "description": "Operator places the yellow box without picking it up first, then repairs the skipped step.",
+  "events": [
+    {"t": 3.0,  "action": "OPEN_CONTAINER",    "confidence": 0.96},
+    {"t": 8.0,  "action": "PICK_RED_BOX",      "confidence": 0.94},
+    {"t": 13.0, "action": "PLACE_RED_BOX",     "confidence": 0.93},
+    {"t": 18.0, "action": "PLACE_YELLOW_BOX",  "confidence": 0.90},
+    {"t": 24.0, "action": "PICK_YELLOW_BOX",   "confidence": 0.92}
+  ]
+}

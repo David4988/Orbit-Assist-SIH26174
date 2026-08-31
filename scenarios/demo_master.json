@@ -1,0 +1,13 @@
+{
+  "name": "demo_master",
+  "description": "The 2-3 minute presentation scenario. Beats in order: two correct steps, wrong object (blue distractor), recovery, skipped step, late recovery, completion. Pause/resume are driven live from the controls.",
+  "events": [
+    {"t": 4.0,   "action": "OPEN_CONTAINER",   "confidence": 0.96},
+    {"t": 14.0,  "action": "PICK_BLUE_BOX",    "confidence": 0.88},
+    {"t": 24.0,  "action": "PICK_RED_BOX",     "confidence": 0.94},
+    {"t": 34.0,  "action": "PLACE_RED_BOX",    "confidence": 0.93},
+    {"t": 46.0,  "action": "PLACE_YELLOW_BOX", "confidence": 0.91},
+    {"t": 58.0,  "action": "PICK_YELLOW_BOX",  "confidence": 0.92},
+    {"t": 72.0,  "action": "CLOSE_CONTAINER",  "confidence": 0.97}
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "name": "perfect",
+  "description": "Nominal run. All six steps in order.",
+  "events": [
+    {"t": 3.0,  "action": "OPEN_CONTAINER",    "confidence": 0.96},
+    {"t": 9.0,  "action": "PICK_RED_BOX",      "confidence": 0.94},
+    {"t": 15.0, "action": "PLACE_RED_BOX",     "confidence": 0.93},
+    {"t": 21.0, "action": "PICK_YELLOW_BOX",   "confidence": 0.95},
+    {"t": 27.0, "action": "PLACE_YELLOW_BOX",  "confidence": 0.92},
+    {"t": 33.0, "action": "CLOSE_CONTAINER",   "confidence": 0.97}
+  ]
+}
