@@ -277,6 +277,9 @@ export default function Feed({ status, onClock, videoRef, lastEvent, feedMode, o
   // ── replay video state ──
   const [hasVideo, setHasVideo] = useState(null) // null = not yet tried
   const fallbackStart = useRef(null)
+  // lastTRef persists across effect re-runs so pause→resume resumes from the
+  // correct position rather than jumping forward by the pause duration.
+  const lastTRef = useRef(-1)
 
   // ── camera state ──
   const [camState, setCamState] = useState('idle') // idle | requesting | active | denied | unavailable
@@ -354,37 +357,45 @@ export default function Feed({ status, onClock, videoRef, lastEvent, feedMode, o
   useEffect(() => {
     const replayVideo = videoRef?.current
     let raf
-    let last = -1
+
+    // When transitioning into 'running' (start or resume after pause), reset
+    // fallbackStart so it is recalculated on the first tick using lastTRef as
+    // the offset — this is what keeps the clock correct through pause/resume.
+    // When resetting to 'idle', also clear lastTRef.
+    if (status === 'running') {
+      fallbackStart.current = null
+    } else if (status === 'idle') {
+      fallbackStart.current = null
+      lastTRef.current = -1
+    }
 
     const loop = () => {
+      const now = performance.now() / 1000
       let t = null
 
       if (feedMode === 'replay') {
-        // Use replay video's currentTime if the video loaded successfully
-        if (hasVideo && replayVideo && !Number.isNaN(replayVideo.duration)) {
+        // Prefer real video's currentTime (natural pause/resume for free).
+        if (hasVideo === true && replayVideo && !Number.isNaN(replayVideo.duration)) {
           t = replayVideo.currentTime
         } else if (status === 'running') {
-          const now = performance.now() / 1000
-          if (fallbackStart.current == null) fallbackStart.current = now - Math.max(last, 0)
+          // Wall-clock fallback: anchor from lastTRef so pause duration is excluded.
+          if (fallbackStart.current == null) {
+            fallbackStart.current = now - Math.max(lastTRef.current, 0)
+          }
           t = now - fallbackStart.current
-        } else if (status === 'idle') {
-          fallbackStart.current = null
-          last = -1
         }
       } else if (feedMode === 'camera') {
-        // Camera mode: always use wall clock (video is visual-only)
+        // Camera mode: always wall clock (webcam feed is visual-only).
         if (status === 'running') {
-          const now = performance.now() / 1000
-          if (fallbackStart.current == null) fallbackStart.current = now - Math.max(last, 0)
+          if (fallbackStart.current == null) {
+            fallbackStart.current = now - Math.max(lastTRef.current, 0)
+          }
           t = now - fallbackStart.current
-        } else if (status === 'idle') {
-          fallbackStart.current = null
-          last = -1
         }
       }
 
-      if (t != null && Math.abs(t - last) > 0.2) {
-        last = t
+      if (t != null && Math.abs(t - lastTRef.current) > 0.2) {
+        lastTRef.current = t
         onClock(t)
       }
       raf = requestAnimationFrame(loop)
@@ -393,11 +404,6 @@ export default function Feed({ status, onClock, videoRef, lastEvent, feedMode, o
     raf = requestAnimationFrame(loop)
     return () => cancelAnimationFrame(raf)
   }, [videoRef, onClock, hasVideo, status, feedMode])
-
-  // ── reset wall clock when mode changes or status resets ──
-  useEffect(() => {
-    fallbackStart.current = null
-  }, [feedMode, status === 'idle'])
 
   // ── determine what to show in the frame ──
   const showReplayVideo = feedMode === 'replay' && hasVideo === true
