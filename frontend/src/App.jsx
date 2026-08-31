@@ -19,6 +19,13 @@ export default function App() {
   const { snapshot, connected, sendClock, post } = useSession(speak)
   const [demoOpen, setDemoOpen] = useState(false)
   const [aboutOpen, setAboutOpen] = useState(false)
+
+  // feedMode is owned by App so that play/pause/reset can coordinate correctly.
+  // 'replay' = scripted MP4/canvas replay (master clock from video.currentTime)
+  // 'camera' = live webcam visual feed (clock from performance.now wall clock)
+  const [feedMode, setFeedMode] = useState('replay')
+
+  // Replay video ref — App owns this so it can call play/pause on it.
   const videoRef = useRef(null)
 
   const state = snapshot?.state
@@ -37,29 +44,52 @@ export default function App() {
   const handleStart = useCallback(async () => {
     prime() // unlock speech synthesis while we still have the user gesture
     await post('start', { scenario: 'demo_master' })
-    const v = videoRef.current
-    if (v) {
-      v.currentTime = 0
-      v.play().catch(() => {})
+    // Only play the replay video if we are in replay mode and have a video element
+    if (feedMode === 'replay') {
+      const v = videoRef.current
+      if (v) {
+        v.currentTime = 0
+        v.play().catch(() => {})
+      }
     }
-  }, [post, prime])
+    // In camera mode, the wall-clock in Feed drives timing — nothing to play here.
+  }, [post, prime, feedMode])
 
   const handlePause = useCallback(async () => {
-    videoRef.current?.pause()
+    // Pause the replay video if in replay mode
+    if (feedMode === 'replay') {
+      videoRef.current?.pause()
+    }
     await post('pause')
-  }, [post])
+  }, [post, feedMode])
 
   const handleResume = useCallback(async () => {
     await post('resume')
-    videoRef.current?.play().catch(() => {})
-  }, [post])
+    // Resume the replay video if in replay mode
+    if (feedMode === 'replay') {
+      videoRef.current?.play().catch(() => {})
+    }
+  }, [post, feedMode])
 
   const handleReset = useCallback(async () => {
     cancel()
+    // Reset the replay video position
     const v = videoRef.current
     if (v) { v.pause(); v.currentTime = 0 }
     await post('reset')
   }, [post, cancel])
+
+  const handleFeedModeChange = useCallback((mode) => {
+    // When switching to camera from replay while running, pause the video
+    if (mode === 'camera' && feedMode === 'replay' && status === 'running') {
+      videoRef.current?.pause()
+    }
+    // When switching back to replay while running, resume the video
+    if (mode === 'replay' && feedMode === 'camera' && status === 'running') {
+      videoRef.current?.play().catch(() => {})
+    }
+    setFeedMode(mode)
+  }, [feedMode, status])
 
   const fire = useCallback((action) => post('event', { action }), [post])
 
@@ -97,6 +127,8 @@ export default function App() {
             onClock={sendClock}
             videoRef={videoRef}
             lastEvent={lastEvent}
+            feedMode={feedMode}
+            onFeedModeChange={handleFeedModeChange}
           />
           <EventLog events={events} />
         </section>

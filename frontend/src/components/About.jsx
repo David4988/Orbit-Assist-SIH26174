@@ -46,7 +46,8 @@ export default function About({ open, onClose }) {
                 <span className="eyebrow about-tag about-tag--sim">Simulated for this PoC</span>
                 <ul>
                   <li>Perception — actions come from a scripted scenario</li>
-                  <li>The feed is a recorded video, not an interpreted one</li>
+                  <li>The feed is a recorded video or canvas replay, not an interpreted one</li>
+                  <li>Live Camera shows your real webcam but does <em>not</em> drive perception</li>
                   <li>Confidence values are authored, not measured</li>
                   <li>No trained model, no accuracy has been measured</li>
                 </ul>

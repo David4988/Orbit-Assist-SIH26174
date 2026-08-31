@@ -1,28 +1,107 @@
+/* ─── feed shell ─────────────────────────────────────── */
 .feed { display: flex; flex-direction: column; gap: 18px; }
 
+/* ─── mode toggle ────────────────────────────────────── */
+.feed-modes {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  background: var(--rule-soft);
+  border: 1px solid var(--rule);
+  border-radius: 7px;
+  align-self: flex-start;
+}
+
+.feed-mode-btn {
+  padding: 5px 13px;
+  border: none;
+  border-radius: 4px;
+  background: none;
+  font-family: var(--sans);
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--ink-3);
+  cursor: pointer;
+  transition: background 0.15s var(--ease), color 0.15s var(--ease), box-shadow 0.15s var(--ease);
+  white-space: nowrap;
+}
+.feed-mode-btn:hover { color: var(--ink-2); }
+.feed-mode-btn--active {
+  background: var(--card);
+  color: var(--ink);
+  box-shadow: 0 1px 3px rgba(22, 25, 28, 0.08), 0 0 0 1px var(--rule);
+}
+
+/* ─── frame ──────────────────────────────────────────── */
 .feed-frame {
   position: relative;
   aspect-ratio: 16 / 10;
-  background: #eceee9;
+  background: #eceeea;
   border: 1px solid var(--rule);
   border-radius: 6px;
   overflow: hidden;
 }
 
-.feed-video { width: 100%; height: 100%; object-fit: cover; display: block; }
-
-.feed-placeholder {
-  position: absolute; inset: 0;
-  display: flex; flex-direction: column;
-  align-items: center; justify-content: center;
-  gap: 8px;
-  background: repeating-linear-gradient(
-    45deg, #f1f3ef, #f1f3ef 12px, #eceee9 12px, #eceee9 24px
-  );
-  color: var(--ink-3);
+/* ─── video / canvas fills ───────────────────────────── */
+.feed-video {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  display: block;
 }
-.feed-placeholder p { margin: 0; font-size: 13.5px; }
+.feed-video--camera {
+  /* mirror front-facing camera on desktop for natural feel */
+  transform: scaleX(-1);
+}
+/* If user is on rear camera the mirror looks wrong — only apply to front camera.
+   We can't reliably detect this from JS without querying deviceInfo, so we leave
+   it as a CSS class toggle opportunity. For now default mirrored (desktop). */
 
+.feed-canvas {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  display: block;
+}
+
+/* ─── camera states (connecting / request / denied) ──── */
+.feed-camera-state {
+  position: absolute; inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 32px;
+  background: rgba(246, 247, 245, 0.97);
+  text-align: center;
+}
+
+.feed-camera-state--error { background: var(--stop-wash); }
+
+.feed-camera-spinner {
+  width: 22px; height: 22px;
+  border: 2px solid var(--rule);
+  border-top-color: var(--navy);
+  border-radius: 50%;
+  animation: feed-spin 0.8s linear infinite;
+}
+@keyframes feed-spin { to { transform: rotate(360deg); } }
+
+.feed-camera-msg {
+  margin: 0;
+  font-size: 13px;
+  color: var(--ink-2);
+  max-width: 280px;
+  line-height: 1.5;
+}
+
+.feed-camera-error-label { color: var(--stop); }
+
+.feed-camera-cta {
+  margin-top: 4px;
+}
+
+/* ─── paused overlay ─────────────────────────────────── */
 .feed-paused {
   position: absolute; inset: 0;
   display: flex; align-items: center; justify-content: center;
@@ -30,6 +109,7 @@
 }
 .feed-paused .eyebrow { font-size: 12px; color: var(--ink-2); }
 
+/* ─── badge (bottom left) ────────────────────────────── */
 .feed-badge {
   position: absolute;
   left: 12px; bottom: 12px;
@@ -38,14 +118,55 @@
   background: rgba(255, 255, 255, 0.92);
   border: 1px solid var(--rule);
   border-radius: 4px;
+  backdrop-filter: blur(4px);
 }
 .feed-badge .code { font-size: 10.5px; color: var(--ink-2); }
 
-.feed-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--ink-3); }
-.feed-dot[data-status='running'] { background: var(--go); }
-.feed-dot[data-status='paused']  { background: var(--hold); }
-.feed-dot[data-status='complete'] { background: var(--navy); }
+/* ─── perception label (top right) ──────────────────── */
+.feed-perception-label {
+  position: absolute;
+  right: 12px; top: 12px;
+  padding: 4px 8px;
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  backdrop-filter: blur(4px);
+}
+.feed-perception-label .code {
+  font-size: 9.5px;
+  color: var(--ink-3);
+  letter-spacing: 0.1em;
+}
 
+/* ─── status dots ────────────────────────────────────── */
+.feed-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--ink-3);
+  flex-shrink: 0;
+}
+
+/* Replay dots */
+.feed-dot[data-status='running']  { background: var(--go); }
+.feed-dot[data-status='paused']   { background: var(--hold); }
+.feed-dot[data-status='complete'] { background: var(--navy); }
+.feed-dot[data-status='canvas']   { background: var(--ink-3); }
+
+/* Camera dots */
+.feed-dot[data-cam='live'] {
+  background: var(--go);
+  box-shadow: 0 0 0 0 rgba(31, 122, 77, 0.5);
+  animation: feed-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+.feed-dot[data-cam='connecting'] {
+  background: var(--hold);
+}
+@keyframes feed-pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(31, 122, 77, 0.45); }
+  60%  { box-shadow: 0 0 0 5px rgba(31, 122, 77, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(31, 122, 77, 0); }
+}
+
+/* ─── observed action ────────────────────────────────── */
 .observed { display: flex; flex-direction: column; gap: 9px; }
 .observed-row {
   display: flex; align-items: baseline; justify-content: space-between;
