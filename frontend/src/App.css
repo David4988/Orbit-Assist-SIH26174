@@ -103,9 +103,12 @@
 .main {
   flex: 1;
   display: grid;
-  /* The feed is the strongest visual anchor — give it the larger column. */
-  grid-template-columns: minmax(0, 1.12fr) minmax(0, 1fr);
-  gap: 40px;
+  /* Feed ~54.5% / Procedure ~45.5% of the usable grid width (excluding the
+     gap) — the feed is the literal visual centerpiece of the demo, not just
+     the more-polished of two equal halves. minmax floors keep either side
+     from collapsing before the stack breakpoint takes over. */
+  grid-template-columns: minmax(560px, 1.2fr) minmax(480px, 1fr);
+  gap: 32px;
   padding: 26px 0 30px;
   align-items: start;
 }
