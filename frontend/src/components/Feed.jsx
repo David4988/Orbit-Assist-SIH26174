@@ -1,44 +1,69 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import HandStage from './HandStage'
+import { BOX, CHOREO, FALLBACK_BEATS, sceneAt, stage } from './demoScene'
 import './Feed.css'
 
 const EASE = [0.22, 1, 0.36, 1]
 
 /* ─────────────────────────────────────────────────────────────────────────────
    Canvas Demo Replay Fallback
+
    A deterministic lab-bench animation used when no experiment.mp4 is present.
    It provides a genuine "something is being monitored" visual so Demo Replay
    mode is never just an empty standby placeholder.
-   The animation is driven by the same wall clock that the scenario player
-   uses when there is no video, so the two stay loosely in sync.
+
+   The scene is a pure function of (elapsed time, scenario beats). Every beat
+   in scenarios/demo_master.json names an action; CHOREO below says where the
+   hand must be when that action is observed and what it does to the objects.
+   The hand always ARRIVES at a beat's target exactly at that beat's timestamp,
+   so the animation, the emitted event, the procedure UI and the spoken
+   guidance all describe the same action at the same instant.
+
+   The clock is the same one Feed reports to the backend, so the animation
+   cannot drift from the scenario player, and Reset rewinds both together.
 ───────────────────────────────────────────────────────────────────────────── */
-function DemoCanvas({ status, canvasRef }) {
+
+function DemoCanvas({ clockRef, canvasRef }) {
   const animRef = useRef(null)
-  const tRef = useRef(0)
+  const beatsRef = useRef(FALLBACK_BEATS)
+
+  // Adopt the real scenario beats so the animation and the engine are driven
+  // by one definition. Ignored unless every action can actually be staged.
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/scenario/demo_master')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (cancelled || !d?.events?.length) return
+        if (d.events.every((e) => CHOREO[e.action])) {
+          beatsRef.current = d.events.map((e) => ({ t: e.t, action: e.action }))
+        }
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
     const ctx = canvas.getContext('2d')
 
-    // Resize to container
+    // Resize to container. setTransform, not scale — scale compounds every
+    // time the window is resized mid-demo.
     const resize = () => {
-      canvas.width = canvas.offsetWidth * window.devicePixelRatio
-      canvas.height = canvas.offsetHeight * window.devicePixelRatio
-      ctx.scale(window.devicePixelRatio, window.devicePixelRatio)
+      const dpr = window.devicePixelRatio || 1
+      canvas.width = canvas.offsetWidth * dpr
+      canvas.height = canvas.offsetHeight * dpr
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
     }
     resize()
     window.addEventListener('resize', resize)
 
-    let last = performance.now()
-    const PERIOD = 80 // scene loops every 80 s (matches demo duration)
-
     const draw = (now) => {
-      const dt = (now - last) / 1000
-      last = now
-      if (status === 'running') tRef.current += dt
-      const t = tRef.current % PERIOD
+      const t = Math.max(0, clockRef.current)
 
       const W = canvas.offsetWidth
       const H = canvas.offsetHeight
@@ -58,8 +83,12 @@ function DemoCanvas({ status, canvasRef }) {
         ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke()
       }
 
+      // ── scene, derived from the scenario beats ──
+      const g = stage(W, H)
+      const scene = sceneAt(t, beatsRef.current, g)
+      const { cX, cY, cW, cH, benchY: bY } = g
+
       // ── lab bench ──
-      const bY = H * 0.65
       ctx.fillStyle = '#d4d8cf'
       ctx.fillRect(0, bY, W, H - bY)
       ctx.strokeStyle = '#b8bdb2'
@@ -67,13 +96,7 @@ function DemoCanvas({ status, canvasRef }) {
       ctx.beginPath(); ctx.moveTo(0, bY); ctx.lineTo(W, bY); ctx.stroke()
 
       // ── container / outer box ──
-      const cX = W * 0.5
-      const cW = W * 0.28
-      const cH = H * 0.22
-      const cY = bY - cH
-
-      // container open/closed based on step 1 (t >= 4) and step 6 (t >= 72)
-      const containerOpen = t >= 4.0 && t < 72.0
+      const containerOpen = scene.open
       ctx.strokeStyle = '#8a9088'
       ctx.lineWidth = 2
       ctx.fillStyle = 'rgba(255,255,255,0.55)'
@@ -106,57 +129,26 @@ function DemoCanvas({ status, canvasRef }) {
       ctx.fillText('CONTAINER', cX, bY - 10)
 
       // ── placement markers ──
-      const mRX = W * 0.72
-      const mYX = W * 0.26
-      const mY = bY + 14
-      const mR = 18
+      const mR = g.markerR
 
       // Red marker
       ctx.strokeStyle = 'rgba(166,43,31,0.35)'
       ctx.lineWidth = 1.5
       ctx.setLineDash([4, 4])
-      ctx.beginPath(); ctx.arc(mRX, mY + mR, mR, 0, Math.PI * 2); ctx.stroke()
+      ctx.beginPath(); ctx.arc(g.redMarker.x, g.redMarker.y + mR, mR, 0, Math.PI * 2); ctx.stroke()
       ctx.setLineDash([])
 
       // Yellow marker
       ctx.strokeStyle = 'rgba(178,106,0,0.35)'
-      ctx.beginPath(); ctx.arc(mYX, mY + mR, mR, 0, Math.PI * 2); ctx.stroke()
+      ctx.setLineDash([4, 4])
+      ctx.beginPath(); ctx.arc(g.yellowMarker.x, g.yellowMarker.y + mR, mR, 0, Math.PI * 2); ctx.stroke()
       ctx.setLineDash([])
 
-      // ── hand cursor — eased position ──
-      // Waypoints keyed to scenario events
-      const waypoints = [
-        { t: 0,    x: W * 0.5,  y: H * 0.4 },  // idle
-        { t: 3.5,  x: W * 0.5,  y: cY + cH * 0.5 }, // reaching for container
-        { t: 5.5,  x: W * 0.5,  y: cY - 20 },        // lifting lid
-        { t: 9,    x: W * 0.5,  y: H * 0.4 },        // back
-        { t: 13.5, x: W * 0.5,  y: cY + cH * 0.5 }, // reach into container
-        { t: 23.5, x: W * 0.5,  y: cY + cH * 0.3 }, // still reaching (wrong obj)
-        { t: 24.5, x: mRX,      y: mY - 10 },        // move red box
-        { t: 33.5, x: mRX,      y: mY + mR },        // placing red
-        { t: 36,   x: W * 0.5,  y: H * 0.4 },        // back
-        { t: 45.5, x: W * 0.5,  y: cY + cH * 0.5 }, // reach for yellow
-        { t: 57.5, x: mYX,      y: mY - 10 },        // move yellow
-        { t: 67,   x: mYX,      y: mY + mR },        // placing yellow
-        { t: 70,   x: W * 0.5,  y: H * 0.4 },        // back
-        { t: 72,   x: W * 0.5,  y: cY - 10 },        // close container
-        { t: 75,   x: W * 0.5,  y: H * 0.4 },        // done
-      ]
-
-      let hx = W * 0.5, hy = H * 0.4
-      for (let i = 0; i < waypoints.length - 1; i++) {
-        const a = waypoints[i], b = waypoints[i + 1]
-        if (t >= a.t && t < b.t) {
-          const p = Math.max(0, Math.min(1, (t - a.t) / (b.t - a.t)))
-          const ep = p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2
-          hx = a.x + (b.x - a.x) * ep
-          hy = a.y + (b.y - a.y) * ep
-          break
-        }
-      }
-
-      if (status === 'running') {
-        // hand circle
+      // ── hand cursor ──
+      // Position comes straight from the beats, so the hand is always on the
+      // object the current event names.
+      const { x: hx, y: hy } = scene.hand
+      if (t > 0) {
         ctx.beginPath()
         ctx.arc(hx, hy, 9, 0, Math.PI * 2)
         ctx.fillStyle = 'rgba(22,50,79,0.18)'
@@ -172,54 +164,9 @@ function DemoCanvas({ status, canvasRef }) {
       }
 
       // ── small objects ──
-      // Red box: inside container until step 2 (t>=24), at marker after step 3 (t>=34)
-      const redAtMarker = t >= 34.0
-      const redInHand = t >= 23.5 && t < 34.0
-      const bSize = 18
-      let rX, rY
-      if (redAtMarker) { rX = mRX; rY = mY }
-      else if (redInHand) { rX = hx - bSize / 2; rY = hy - bSize / 2 }
-      else { rX = cX + 6; rY = cY + cH * 0.4 }
-      if (t >= 4.0) { // visible after container opens
-        ctx.fillStyle = '#c0392b'
-        ctx.strokeStyle = '#922b21'
-        ctx.lineWidth = 1
-        ctx.beginPath()
-        ctx.roundRect(rX - bSize / 2, rY - bSize / 2, bSize, bSize, 3)
-        ctx.fill(); ctx.stroke()
-        ctx.fillStyle = 'rgba(255,255,255,0.35)'
-        ctx.beginPath()
-        ctx.roundRect(rX - bSize / 2 + 2, rY - bSize / 2 + 2, bSize * 0.45, bSize * 0.3, 2)
-        ctx.fill()
-      }
-
-      // Yellow box: inside container until step 4 (t>=45), marker after step 5 (t>=57 skip)
-      const yellowAtMarker = t >= 57.0
-      const yellowInHand = t >= 45.5 && t < 57.0
-      let yX, yY
-      if (yellowAtMarker) { yX = mYX; yY = mY }
-      else if (yellowInHand) { yX = hx - bSize / 2; yY = hy - bSize / 2 }
-      else { yX = cX - 8; yY = cY + cH * 0.55 }
-      if (t >= 4.0) {
-        ctx.fillStyle = '#d4ac0d'
-        ctx.strokeStyle = '#9a7d0a'
-        ctx.lineWidth = 1
-        ctx.beginPath()
-        ctx.roundRect(yX - bSize / 2, yY - bSize / 2, bSize, bSize, 3)
-        ctx.fill(); ctx.stroke()
-        ctx.fillStyle = 'rgba(255,255,255,0.35)'
-        ctx.beginPath()
-        ctx.roundRect(yX - bSize / 2 + 2, yY - bSize / 2 + 2, bSize * 0.45, bSize * 0.3, 2)
-        ctx.fill()
-      }
-
-      // Blue box (distractor — always on bench)
-      ctx.fillStyle = '#2471a3'
-      ctx.strokeStyle = '#1a5276'
-      ctx.lineWidth = 1
-      ctx.beginPath()
-      ctx.roundRect(W * 0.15 - bSize / 2, bY - bSize * 1.5, bSize, bSize, 3)
-      ctx.fill(); ctx.stroke()
+      drawBox(ctx, scene.boxes.RED, '#c0392b', '#922b21')
+      drawBox(ctx, scene.boxes.YELLOW, '#d4ac0d', '#9a7d0a')
+      drawBox(ctx, scene.boxes.BLUE, '#2471a3', '#1a5276')
 
       // ── scan line overlay ──
       const grad = ctx.createLinearGradient(0, 0, 0, H)
@@ -233,7 +180,7 @@ function DemoCanvas({ status, canvasRef }) {
       ctx.fillRect(0, 0, W, H)
 
       // ── corner brackets ──
-      const br = 16, bl = 18
+      const br = 16
       ctx.strokeStyle = 'rgba(22,50,79,0.4)'
       ctx.lineWidth = 1.5
       const corners = [[0, 0, 1, 1], [W, 0, -1, 1], [0, H, 1, -1], [W, H, -1, -1]]
@@ -241,10 +188,10 @@ function DemoCanvas({ status, canvasRef }) {
         ctx.beginPath(); ctx.moveTo(cx + sx * br, cy); ctx.lineTo(cx, cy); ctx.lineTo(cx, cy + sy * br); ctx.stroke()
       })
 
-      // ── timestamp ──
-      const elapsed = tRef.current
-      const mm = String(Math.floor(elapsed / 60)).padStart(2, '0')
-      const ss = String(Math.floor(elapsed % 60)).padStart(2, '0')
+      // ── timestamp ── the same clock the backend is being driven by, so it
+      // always agrees with the "Elapsed" readout beside the procedure.
+      const mm = String(Math.floor(t / 60)).padStart(2, '0')
+      const ss = String(Math.floor(t % 60)).padStart(2, '0')
       ctx.fillStyle = 'rgba(22,50,79,0.5)'
       ctx.font = `500 ${Math.max(9, W * 0.014)}px "IBM Plex Mono", monospace`
       ctx.textAlign = 'left'
@@ -258,9 +205,34 @@ function DemoCanvas({ status, canvasRef }) {
       cancelAnimationFrame(animRef.current)
       window.removeEventListener('resize', resize)
     }
-  }, [status, canvasRef])
+  }, [canvasRef, clockRef])
 
   return null
+}
+
+/** One coloured box. Carried boxes are raised and shadowed; pushed boxes are
+    deliberately not, so a shove never reads as a pick-up. */
+function drawBox(ctx, box, fill, edge) {
+  if (!box.visible) return
+  const s = box.lifted ? BOX * 1.12 : BOX
+  if (box.lifted) {
+    ctx.shadowColor = 'rgba(22,50,79,0.35)'
+    ctx.shadowBlur = 12
+    ctx.shadowOffsetY = 4
+  }
+  ctx.fillStyle = fill
+  ctx.strokeStyle = edge
+  ctx.lineWidth = 1
+  ctx.beginPath()
+  ctx.roundRect(box.x - s / 2, box.y - s / 2, s, s, 3)
+  ctx.fill(); ctx.stroke()
+  ctx.shadowBlur = 0
+  ctx.shadowOffsetY = 0
+
+  ctx.fillStyle = 'rgba(255,255,255,0.35)'
+  ctx.beginPath()
+  ctx.roundRect(box.x - s / 2 + 2, box.y - s / 2 + 2, s * 0.45, s * 0.3, 2)
+  ctx.fill()
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -481,7 +453,10 @@ export default function Feed({ status, onClock, videoRef, lastEvent, feedMode, o
             )}
           </AnimatePresence>
         )}
-        {feedMode === 'replay' && <DemoCanvas status={status} canvasRef={canvasRef} />}
+        {/* Driven by lastTRef — the exact clock reported to the backend, so
+            the animation and the scenario player can never drift, and Reset
+            rewinds both at once. */}
+        {feedMode === 'replay' && <DemoCanvas clockRef={lastTRef} canvasRef={canvasRef} />}
 
         {/* Camera: live video element */}
         <video

@@ -103,7 +103,12 @@ kind of competing-timeline bug this design avoids by construction.
 **Demo Replay** (default) — `PERCEPTION · SIMULATED`
 : Uses `media/experiment.mp4` if present, otherwise renders an animated
   canvas scene — a lab bench with the container, coloured boxes and a hand
-  cursor that loosely tracks the scenario timeline. The video's `currentTime`
+  cursor. The scene is a pure function of the scenario's own beats (fetched
+  from `/api/scenario/demo_master`), not a parallel hand-authored timeline:
+  the hand arrives at each action's target exactly as that event fires, so
+  the picture, the event, the procedure UI and the spoken guidance always
+  describe the same action (`frontend/src/components/demoScene.js`).
+  The video's `currentTime`
   (or wall clock when using the canvas) is the master clock: the backend's
   `Session` runs in `mode="scripted"`, and every clock tick advances
   `scenarios/demo_master.json` directly.
@@ -194,7 +199,7 @@ experiments/  step definitions (see note below)
 scenarios/    six scripted scenarios; demo_master.json drives the demo
 frontend/
   src/
-    components/    Feed · HandStage · Procedure · Timeline · EventLog · Summary · DemoPanel · About
+    components/    Feed · demoScene · HandStage · Procedure · Timeline · EventLog · Summary · DemoPanel · About
     perception/    handTracker · pinch · scene · interaction  (Live Hand — browser-side only)
     hooks/         useSession (WebSocket) · useSpeech (browser TTS)
   public/

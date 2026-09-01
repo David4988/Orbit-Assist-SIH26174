@@ -221,6 +221,23 @@ async def api_scenarios():
     return {"scenarios": list_scenarios(), "active": session.player.name}
 
 
+@app.get("/api/scenario/{name}")
+async def api_scenario(name: str):
+    """The beats of one scenario, so Demo Replay's canvas can animate the
+    same event definitions the engine is driven by rather than keeping its
+    own parallel timeline (which is how they drifted apart)."""
+    if name not in list_scenarios():
+        return JSONResponse({"error": "unknown scenario"}, status_code=404)
+    player = ScenarioPlayer(name)
+    return {
+        "name": player.name,
+        "description": player.description,
+        "events": [
+            {"t": float(e["t"]), "action": e["action"]} for e in player.events
+        ],
+    }
+
+
 @app.get("/api/log")
 async def api_log():
     if not session.log or not session.log.txt_path.exists():
