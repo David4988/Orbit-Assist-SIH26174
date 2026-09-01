@@ -111,3 +111,54 @@ def test_completion_and_summary_speech():
     # Once complete, further events are inert.
     state, d = engine.process_event(state, ev(CLOSE, t=99.0))
     assert state.status == "complete"
+
+
+# ---------------------------------------------------------------------------
+# Completion invariant: COMPLETE requires every step to be done or done_late.
+# current_index reaching len(steps) is not sufficient on its own - a skipped
+# step that is never recovered must keep the run open indefinitely.
+# ---------------------------------------------------------------------------
+
+def test_skip_never_recovered_blocks_completion():
+    # Skip step 2 (pick_red) by jumping straight to place_red, then run the
+    # rest of the procedure to its final action without ever recovering it.
+    state, _ = run([OPEN, PLACE_R, PICK_Y, PLACE_Y, CLOSE])
+    assert state.steps[1].status == "skipped"
+    assert state.status == "running"  # NOT complete - step 2 still unresolved
+
+    # Recovering it afterwards is what finally allows completion.
+    state, d = engine.process_event(state, ev(PICK_R, t=9.0))
+    assert d.kind == "done_late"
+    assert state.status == "complete"
+
+
+def test_skip_middle_step_blocks_completion():
+    # An arbitrary middle step (place_red) left unresolved, not just step 2.
+    state, _ = run([OPEN, PICK_R, PICK_Y, PLACE_Y, CLOSE])
+    assert state.steps[2].status == "skipped"
+    assert state.status == "running"
+
+
+def test_skip_second_to_last_step_blocks_completion():
+    # Skipping the second-to-last step and still performing the final action
+    # must not be enough to complete.
+    state, _ = run([OPEN, PICK_R, PLACE_R, PICK_Y, CLOSE])
+    assert state.steps[4].status == "skipped"
+    assert state.status == "running"
+
+
+def test_multiple_unresolved_skips_block_completion():
+    # Several steps skipped in one run - all of them must remain unresolved,
+    # none silently counted as done.
+    state, _ = run([OPEN, PICK_Y, CLOSE])
+    assert [s.status for s in state.steps].count("skipped") == 3
+    assert state.status == "running"
+
+
+def test_wrong_final_action_cannot_trigger_completion():
+    # An incorrect action at the final step must never flip status to
+    # complete, regardless of current_index.
+    state, _ = run([OPEN, PICK_R, PLACE_R, PICK_Y, PLACE_Y])
+    state, d = engine.process_event(state, ev(PICK_B, t=9.0))
+    assert d.kind == "unknown"
+    assert state.status == "running"

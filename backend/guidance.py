@@ -94,7 +94,16 @@ def speech_for(state: RunState, decision: Decision) -> str:
     nxt = next_instruction(state)
 
     if decision.kind == "correct":
-        return f"Correct. Next: {nxt.lower()}." if nxt else "Correct."
+        if nxt:
+            return f"Correct. Next: {nxt.lower()}."
+        # Walked past the last step without the run actually completing -
+        # something earlier is still sitting skipped. Say so instead of a
+        # bare "Correct." that would otherwise sound like the end.
+        pending = outstanding_skipped(state)
+        if pending:
+            n, step = pending
+            return f"Procedure incomplete. Step {n} still needs recovery: {step.instruction.lower()}."
+        return "Correct."
 
     if decision.kind == "skipped":
         skipped = [s for s in state.steps if s.status == "skipped"]

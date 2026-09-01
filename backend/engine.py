@@ -127,7 +127,15 @@ def process_event(state: RunState, event: ActionEvent) -> tuple[RunState, Decisi
     # wrong_object / wrong_action / unknown leave current_index alone.
     # The engine decides WHAT HAPPENED; guidance.py decides what to say.
 
-    if state.current_index >= len(steps) and decision.kind in ("correct", "skipped"):
+    # Completion invariant: every required step must be in a terminal-success
+    # state (done, or recovered via done_late) - never inferred from
+    # current_index alone. current_index only tracks where the walk through
+    # the sequence currently is; it reaches len(steps) as soon as the last
+    # step is touched, even if an earlier step is still sitting unresolved as
+    # "skipped". Checking it in isolation is what let a skipped step that was
+    # never recovered slip through to COMPLETE the moment the final action
+    # fired - see tests/test_engine.py for the regression.
+    if all(s.status in ("done", "done_late") for s in steps):
         state.status = "complete"
 
     return state, decision
