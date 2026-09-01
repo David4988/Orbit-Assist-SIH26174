@@ -22,26 +22,51 @@
 }
 
 :root {
-  --paper: #f6f7f5;
+  /* Ice-white ground + pure-white surfaces — the page stays predominantly
+     white; every accent below exists to be used sparingly against it. */
+  --paper: #f5f7fa;
   --card: #ffffff;
-  --ink: #16191c;
-  --ink-2: #5c6469;
-  --ink-3: #8b9296;
-  --rule: #e2e5e1;
-  --rule-soft: #eceee9;
-  --navy: #16324f;
-  --go: #1f7a4d;
+  --ink: #14181c;
+  --ink-2: #5a6470;
+  --ink-3: #8892a0;
+  --rule: #dce3ea;
+  --rule-soft: #e8edf2;
+
+  /* Semantic core. Each has exactly one job — see the usage note below —
+     so a colour always answers "what kind of fact is this" at a glance.
+       navy  — brand / mission identity, always present, never a state
+       blue  — active operation, selected control, primary action
+       cyan  — live signal: real-time tracking, an open uplink, telemetry
+       go    — verified / completed (aurora-leaning green, not a plain success green)
+       hold  — attention / skipped
+       stop  — an actual error, nothing else
+       steel — secondary metadata, dividers, inactive/structural elements */
+  --navy: #122b47;
+  --blue: #1b56a8;
+  --cyan: #037d92;
+  --go: #147a5c;
   --hold: #b26a00;
   --stop: #a62b1f;
+  --steel: #5c7290;
+  --steel-soft: #eef1f4;
 
-  --go-wash: #f0f6f2;
+  /* Washes are deliberately more present than a "hint of tint" — they are
+     used on real section-sized areas (the current step, a live badge), not
+     just a 1px accent, so they need to read at a glance, not on close
+     inspection. */
+  --go-wash: #e7f5ee;
   --hold-wash: #fdf6ea;
   --stop-wash: #fbf0ee;
+  --blue-wash: #e4edf9;
+  --cyan-wash: #dff2f4;
+
+  /* The top signal rail and any accent needing a two-stop gradient. */
+  --gradient-signal: linear-gradient(90deg, var(--navy), var(--blue) 45%, var(--cyan));
 
   --sans: 'Instrument Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 
-  --shadow: 0 1px 2px rgba(22, 25, 28, 0.04), 0 8px 24px -8px rgba(22, 25, 28, 0.12);
+  --shadow: 0 1px 2px rgba(20, 24, 28, 0.04), 0 8px 24px -8px rgba(20, 24, 28, 0.12);
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
@@ -63,7 +88,7 @@ body {
 button { font: inherit; color: inherit; }
 
 :focus-visible {
-  outline: 2px solid var(--navy);
+  outline: 2px solid var(--blue);
   outline-offset: 2px;
   border-radius: 3px;
 }
@@ -90,6 +115,50 @@ button { font: inherit; color: inherit; }
 }
 
 .num { font-variant-numeric: tabular-nums; }
+
+/* Mission telemetry — label · value pairs, the vocabulary of an operations
+   console rather than a dashboard. Used in the header status strip and
+   anywhere a real piece of run state needs to read as flight data. */
+.meta-row { display: flex; align-items: center; gap: 12px; }
+.meta-rule { width: 1px; height: 11px; background: var(--rule); flex-shrink: 0; }
+.meta {
+  display: inline-flex; align-items: baseline; gap: 5px;
+  font-family: var(--mono); font-size: 11.5px; letter-spacing: 0.07em;
+  text-transform: uppercase; white-space: nowrap;
+}
+.meta-label { color: var(--ink-3); }
+.meta-value { color: var(--ink-2); font-weight: 500; }
+/* An active operation is orbital blue; brand/mission identity is the only
+   thing that gets navy (see .meta-value--navy). */
+.meta-value--active { color: var(--blue); }
+.meta-value--navy { color: var(--navy); }
+.meta-value--cyan { color: var(--cyan); }
+.meta-value--go { color: var(--go); }
+.meta-value--hold { color: var(--hold); }
+.meta-value--stop { color: var(--stop); }
+.meta-value--muted { color: var(--ink-3); font-weight: 400; }
+
+/* A contained module — the visual unit for anything that should read as its
+   own instrument on the console rather than loose text on the page. */
+.panel {
+  background: var(--card);
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+}
+
+/* Status bullet — a filled dot naming a live condition, sized to be read
+   from a projector rather than inspected up close. */
+.status-dot {
+  display: inline-block;
+  width: 8px; height: 8px; border-radius: 50%;
+  flex-shrink: 0;
+}
+.status-dot--muted  { background: var(--steel); }
+.status-dot--active { background: var(--blue); box-shadow: 0 0 0 3px var(--blue-wash); }
+.status-dot--go     { background: var(--go); box-shadow: 0 0 0 3px var(--go-wash); }
+.status-dot--hold   { background: var(--hold); box-shadow: 0 0 0 3px var(--hold-wash); }
+.status-dot--cyan   { background: var(--cyan); box-shadow: 0 0 0 3px var(--cyan-wash); }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

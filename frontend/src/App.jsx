@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import DemoPanel from './components/DemoPanel'
 import EventLog from './components/EventLog'
 import Feed from './components/Feed'
+import OrbitMark from './components/OrbitMark'
 import Procedure from './components/Procedure'
 import Summary from './components/Summary'
 import Timeline from './components/Timeline'
@@ -13,6 +14,13 @@ import { useSpeech } from './hooks/useSpeech'
 import './App.css'
 
 const EASE = [0.22, 1, 0.36, 1]
+
+// Run status in the operator's own vocabulary, not the internal state name.
+const RUN_LABEL = { idle: 'STANDBY', running: 'ACTIVE', paused: 'HOLD', complete: 'COMPLETE' }
+const RUN_TONE = { idle: 'muted', running: 'active', paused: 'hold', complete: 'go' }
+// The headline the operator reads first — one real state, made legible from
+// across the room, not a fabricated metric.
+const SYSTEM_LABEL = { idle: 'System ready', running: 'System active', paused: 'System hold', complete: 'Run complete' }
 
 export default function App() {
   const { speak, prime, cancel, enabled, setEnabled } = useSpeech()
@@ -110,23 +118,50 @@ export default function App() {
   const lastEvent = events[0]
 
   return (
-    <div className="app">
+    <>
+      <div className="top-rail" aria-hidden="true" />
+      <div className="app">
       <header className="header">
         <div className="brand">
-          <span className="brand-mark" aria-hidden="true" />
+          <OrbitMark active={status === 'running'} />
           <div>
             <h1>Orbit Assist</h1>
-            <p>Onboard procedural intelligence for scientific operations</p>
+            <p>Scientific operations, guided locally.</p>
           </div>
         </div>
 
         <div className="header-meta">
+          <span className="system-status">
+            <span className={`status-dot status-dot--${RUN_TONE[status]}`} />
+            <span className={`system-status-text system-status-text--${RUN_TONE[status]}`}>
+              {SYSTEM_LABEL[status]}
+            </span>
+          </span>
+          <span className="meta-rule meta-rule--tall" />
+          <span className="meta">
+            <span className="meta-label">Run</span>
+            <span className={`meta-value meta-value--${RUN_TONE[status]}`}>{RUN_LABEL[status]}</span>
+          </span>
+          <span className="meta-rule" />
+          <span className="meta">
+            <span className="meta-label">Mode</span>
+            <span className={`meta-value ${feedMode === 'camera' ? 'meta-value--cyan' : ''}`}>
+              {feedMode === 'camera' ? 'Live Hand' : 'Replay'}
+            </span>
+          </span>
+          <span className="meta-rule" />
           <button className="chip" onClick={() => setAboutOpen(true)}>
             <span className={`chip-dot ${feedMode === 'camera' ? 'chip-dot--live' : ''}`} />
             {feedMode === 'camera' ? 'Perception · Hand tracking' : 'Perception · Simulated'}
           </button>
-          <span className={`conn ${connected ? 'conn--on' : ''}`}>
-            {connected ? 'Linked' : 'Offline'}
+          <span className="meta-rule" />
+          <span className="meta">
+            <span className="meta-label">Uplink</span>
+            {/* The uplink is a live signal, not an "active operation" — cyan,
+                not blue, when it's up. */}
+            <span className={`meta-value ${connected ? 'meta-value--cyan' : 'meta-value--stop'}`}>
+              {connected ? 'OK' : 'Offline'}
+            </span>
           </span>
         </div>
       </header>
@@ -148,11 +183,14 @@ export default function App() {
         <section className="col col--procedure">
           <div className="proc-head">
             <div>
-              <span className="eyebrow">Procedure</span>
+              <div className="proc-head-label">
+                <span className="eyebrow">Payload procedure</span>
+                <span className="meta"><span className="meta-label">Mission</span><span className="meta-value meta-value--navy">BAS-01</span></span>
+              </div>
               <h2>{snapshot?.experiment ?? 'BAS Sample Experiment'}</h2>
             </div>
             <div className="proc-clock">
-              <span className="eyebrow">Elapsed</span>
+              <span className="eyebrow">T+</span>
               <span className="num proc-time">{formatTime(elapsed)}</span>
             </div>
           </div>
@@ -182,6 +220,7 @@ export default function App() {
                   currentIndex={currentIndex}
                   status={status}
                   alert={state?.alert}
+                  elapsed={elapsed}
                 />
                 {status !== 'idle' && nextStep && (
                   <div className="up-next">
@@ -226,7 +265,8 @@ export default function App() {
 
       <DemoPanel open={demoOpen} onClose={() => setDemoOpen(false)} onFire={fire} />
       <About open={aboutOpen} onClose={() => setAboutOpen(false)} />
-    </div>
+      </div>
+    </>
   )
 }
 

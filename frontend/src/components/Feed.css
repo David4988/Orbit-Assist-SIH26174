@@ -27,10 +27,18 @@
   white-space: nowrap;
 }
 .feed-mode-btn:hover { color: var(--ink-2); }
-.feed-mode-btn--active {
-  background: var(--card);
-  color: var(--ink);
-  box-shadow: 0 1px 3px rgba(22, 25, 28, 0.08), 0 0 0 1px var(--rule);
+/* The selected feed source carries real colour — blue for the scripted
+   replay, cyan for the genuinely live one — not just a neutral "selected"
+   white tab. */
+.feed-mode-btn--blue.feed-mode-btn--active {
+  background: var(--blue-wash);
+  color: var(--blue);
+  box-shadow: 0 0 0 1px rgba(27, 86, 168, 0.3);
+}
+.feed-mode-btn--cyan.feed-mode-btn--active {
+  background: var(--cyan-wash);
+  color: var(--cyan);
+  box-shadow: 0 0 0 1px rgba(3, 125, 146, 0.32);
 }
 .feed-mode-btn:disabled {
   cursor: not-allowed;
@@ -39,13 +47,29 @@
 .feed-mode-btn:disabled:hover { color: var(--ink-3); }
 
 /* ─── frame ──────────────────────────────────────────── */
+/* The shell carries the targeting corners (outside the clipped frame, so
+   they never get cut); the frame itself carries the picture. */
+.feed-frame-shell { position: relative; }
+.feed-corner {
+  position: absolute;
+  width: 16px; height: 16px;
+  border-color: var(--blue);
+  opacity: 0.6;
+  pointer-events: none;
+}
+.feed-corner--tl { top: -2px; left: -2px; border-top: 2px solid; border-left: 2px solid; border-top-left-radius: 3px; }
+.feed-corner--tr { top: -2px; right: -2px; border-top: 2px solid; border-right: 2px solid; border-top-right-radius: 3px; }
+.feed-corner--bl { bottom: -2px; left: -2px; border-bottom: 2px solid; border-left: 2px solid; border-bottom-left-radius: 3px; }
+.feed-corner--br { bottom: -2px; right: -2px; border-bottom: 2px solid; border-right: 2px solid; border-bottom-right-radius: 3px; }
+
 .feed-frame {
   position: relative;
   aspect-ratio: 16 / 10;
   background: #eceeea;
-  border: 1px solid var(--rule);
+  border: 1.5px solid var(--rule);
   border-radius: 6px;
   overflow: hidden;
+  box-shadow: 0 1px 2px rgba(18, 43, 71, 0.05), 0 10px 28px -12px rgba(18, 43, 71, 0.22);
 }
 
 /* ─── video / canvas fills ───────────────────────────── */
@@ -86,7 +110,7 @@
 .feed-camera-spinner {
   width: 22px; height: 22px;
   border: 2px solid var(--rule);
-  border-top-color: var(--navy);
+  border-top-color: var(--cyan); /* acquiring a live signal — cyan, not navy */
   border-radius: 50%;
   animation: feed-spin 0.8s linear infinite;
 }
@@ -94,13 +118,13 @@
 
 .feed-camera-msg {
   margin: 0;
-  font-size: 13px;
+  font-size: 14px;
   color: var(--ink-2);
-  max-width: 280px;
+  max-width: 300px;
   line-height: 1.5;
 }
 
-.feed-camera-error-label { color: var(--stop); }
+.feed-camera-error-label { color: var(--stop); font-weight: 600; }
 
 .feed-camera-cta {
   margin-top: 4px;
@@ -118,29 +142,47 @@
 .feed-badge {
   position: absolute;
   left: 12px; bottom: 12px;
-  display: flex; align-items: center; gap: 7px;
-  padding: 5px 9px;
-  background: rgba(255, 255, 255, 0.92);
+  display: flex; align-items: flex-start; gap: 9px;
+  padding: 7px 12px;
+  background: rgba(255, 255, 255, 0.95);
   border: 1px solid var(--rule);
-  border-radius: 4px;
+  border-radius: 5px;
   backdrop-filter: blur(4px);
+  box-shadow: 0 2px 8px -2px rgba(18, 43, 71, 0.14);
 }
-.feed-badge .code { font-size: 10.5px; color: var(--ink-2); }
+.feed-badge-text { display: flex; flex-direction: column; gap: 1px; }
+.feed-badge-id { font-size: 11.5px; font-weight: 500; color: var(--ink-2); line-height: 1.3; }
+.feed-badge-live { color: var(--cyan); font-weight: 700; }
+.feed-badge-detail {
+  font-family: var(--sans); font-size: 10.5px; letter-spacing: 0.02em;
+  color: var(--ink-3);
+}
+.feed-badge .feed-dot { margin-top: 5px; width: 7px; height: 7px; }
 
 /* ─── perception label (top right) ──────────────────── */
 .feed-perception-label {
   position: absolute;
   right: 12px; top: 12px;
-  padding: 4px 8px;
-  background: rgba(255, 255, 255, 0.88);
+  padding: 5px 10px;
+  background: rgba(255, 255, 255, 0.92);
   border: 1px solid var(--rule);
+  box-shadow: 0 2px 8px -2px rgba(18, 43, 71, 0.14);
   border-radius: 4px;
   backdrop-filter: blur(4px);
+  transition: background 0.2s var(--ease), border-color 0.2s var(--ease);
 }
+/* A whisper of cyan only while the signal is genuinely live — the one
+   moment this label is describing real-time telemetry, not a scenario. */
+.feed-perception-label--live {
+  background: var(--cyan-wash);
+  border-color: rgba(3, 125, 146, 0.28);
+}
+.feed-perception-label--live .code { color: var(--cyan); }
 .feed-perception-label .code {
-  font-size: 9.5px;
+  font-size: 10.5px;
+  font-weight: 500;
   color: var(--ink-3);
-  letter-spacing: 0.1em;
+  letter-spacing: 0.09em;
 }
 
 /* ─── status dots ────────────────────────────────────── */
@@ -150,45 +192,62 @@
   flex-shrink: 0;
 }
 
-/* Replay dots */
-.feed-dot[data-status='running']  { background: var(--go); }
+/* Replay dots — in progress is an active operation (blue); only actually
+   finished is "verified" (aurora green). */
+.feed-dot[data-status='running']  { background: var(--blue); }
 .feed-dot[data-status='paused']   { background: var(--hold); }
-.feed-dot[data-status='complete'] { background: var(--navy); }
+.feed-dot[data-status='complete'] { background: var(--go); }
 .feed-dot[data-status='canvas']   { background: var(--ink-3); }
 
-/* Camera dots */
+/* Camera dots — a live signal is cyan, not the "verified" green. */
 .feed-dot[data-cam='live'] {
-  background: var(--go);
-  box-shadow: 0 0 0 0 rgba(31, 122, 77, 0.5);
+  background: var(--cyan);
+  box-shadow: 0 0 0 0 rgba(3, 125, 146, 0.5);
   animation: feed-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 .feed-dot[data-cam='connecting'] {
   background: var(--hold);
 }
 @keyframes feed-pulse {
-  0%   { box-shadow: 0 0 0 0 rgba(31, 122, 77, 0.45); }
-  60%  { box-shadow: 0 0 0 5px rgba(31, 122, 77, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(31, 122, 77, 0); }
+  0%   { box-shadow: 0 0 0 0 rgba(3, 125, 146, 0.45); }
+  60%  { box-shadow: 0 0 0 5px rgba(3, 125, 146, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(3, 125, 146, 0); }
 }
 
 /* ─── observed action ────────────────────────────────── */
-.observed { display: flex; flex-direction: column; gap: 9px; }
+/* A contained instrument, not loose text under the frame — this is the
+   readout a judge should be able to read from the back of the room. */
+.observed {
+  display: flex; flex-direction: column; gap: 10px;
+  padding: 14px 16px;
+}
 .observed-row {
   display: flex; align-items: baseline; justify-content: space-between;
   gap: 16px;
   padding-bottom: 2px;
 }
 .observed-action {
+  display: flex; align-items: center; gap: 9px;
   font-family: var(--mono);
-  font-size: 16px;
-  font-weight: 500;
-  letter-spacing: 0.02em;
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
   color: var(--ink);
 }
+.observed-outcome-dot {
+  display: inline-block;
+  width: 9px; height: 9px; border-radius: 50%;
+  background: var(--ink-3);
+  flex-shrink: 0;
+}
+.observed-outcome-dot--go { background: var(--go); box-shadow: 0 0 0 3px var(--go-wash); }
+.observed-outcome-dot--hold { background: var(--hold); box-shadow: 0 0 0 3px var(--hold-wash); }
+.observed-outcome-dot--stop { background: var(--stop); box-shadow: 0 0 0 3px var(--stop-wash); }
 .observed-row--empty .observed-action { color: var(--ink-3); }
 .observed-conf {
   font-family: var(--mono);
-  font-size: 15px;
+  font-size: 16px;
+  font-weight: 500;
   color: var(--ink);
   display: flex; align-items: baseline; gap: 7px;
 }

@@ -45,12 +45,15 @@
 .mark-icon { width: 13px; height: 13px; display: block; }
 
 .step-instruction {
-  font-size: 15px;
+  font-size: 16px;
   color: var(--ink-2);
   letter-spacing: -0.005em;
 }
 
-.step-detail { margin-top: 5px; }
+.step-detail {
+  margin-top: 7px;
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+}
 .step-note {
   margin-top: 6px;
   font-size: 12.5px;
@@ -78,32 +81,42 @@
 .step--skipped .step-mark { color: var(--hold); }
 .step--skipped .step-instruction { color: var(--ink); }
 
-/* ---------- current: the only elevated element on the page ---------- */
+/* ---------- current: the one visually dominant element on the page ---------- */
 .step--current {
-  background: var(--card);
-  box-shadow: var(--shadow);
-  border-radius: 6px;
+  /* A real orbital-blue surface, not a hint of one — this is the step
+     actually happening right now, and it should be unmistakable across a
+     projector-lit room. Its index column widens to fit "STEP 03" in full. */
+  grid-template-columns: 52px 68px 1fr;
+  background: var(--blue-wash);
+  box-shadow: 0 2px 4px rgba(18, 43, 71, 0.06), 0 14px 32px -14px rgba(27, 86, 168, 0.35);
+  border-radius: 8px;
   border-bottom-color: transparent;
-  padding: 20px 20px 20px 0;
-  margin: 6px 0;
+  padding: 22px 22px 22px 16px;
+  margin: 8px 0;
   z-index: 1;
 }
 .step--current::before {
   content: '';
   position: absolute;
   left: 0; top: 0; bottom: 0;
-  width: 2px;
-  background: var(--navy);
-  border-radius: 2px 0 0 2px;
+  width: 4px;
+  background: var(--blue);
+  border-radius: 3px 0 0 3px;
 }
+/* "STEP 03", not just "03" — only the active step earns the full call-out. */
+.step--current .step-number {
+  color: var(--blue);
+  font-size: 12.5px;
+  font-weight: 700;
+}
+.step--current .step-number::before { content: 'STEP '; }
 .step--current .step-instruction {
-  font-size: 25px;
-  line-height: 1.22;
-  color: var(--ink);
-  font-weight: 500;
-  letter-spacing: -0.018em;
+  font-size: 29px;
+  line-height: 1.2;
+  color: var(--navy);
+  font-weight: 600;
+  letter-spacing: -0.02em;
 }
-.step--current .step-number { color: var(--navy); }
 
 /* Error states recolour the current step's rule rather than raising a
    separate banner — the correction stays where the eye already is. */

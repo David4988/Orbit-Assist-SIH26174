@@ -127,9 +127,11 @@ function drawContainer(ctx, W, H, open) {
   const w = CONTAINER.w * W
   const h = CONTAINER.h * H
 
-  ctx.strokeStyle = 'rgba(22,50,79,0.55)'
-  ctx.lineWidth = 1.5
-  ctx.fillStyle = open ? 'rgba(255,255,255,0.28)' : 'rgba(255,255,255,0.5)'
+  ctx.strokeStyle = 'rgba(18,43,71,0.7)'
+  ctx.lineWidth = 1.75
+  // A whisper of orbital blue rather than plain white — this is controlled
+  // payload hardware, not a generic UI box.
+  ctx.fillStyle = open ? 'rgba(27,86,168,0.05)' : 'rgba(27,86,168,0.09)'
   ctx.beginPath()
   ctx.roundRect(x - w / 2, y - h / 2, w, h, 6)
   ctx.fill()
@@ -137,10 +139,10 @@ function drawContainer(ctx, W, H, open) {
   ctx.stroke()
   ctx.setLineDash([])
 
-  ctx.fillStyle = 'rgba(22,50,79,0.65)'
-  ctx.font = `500 ${Math.max(9, W * 0.011)}px "IBM Plex Mono", monospace`
+  ctx.fillStyle = 'rgba(18,43,71,0.8)'
+  ctx.font = `600 ${Math.max(9, W * 0.011)}px "IBM Plex Mono", monospace`
   ctx.textAlign = 'center'
-  ctx.fillText(`CONTAINER — ${open ? 'OPEN' : 'CLOSED · tap to open'}`, x, y - h / 2 - 8)
+  ctx.fillText(`PAYLOAD CONTAINER — ${open ? 'OPEN' : 'CLOSED · tap to open'}`, x, y - h / 2 - 8)
 }
 
 function drawZones(ctx, W, H, pinch, scene) {
@@ -155,18 +157,46 @@ function drawZones(ctx, W, H, pinch, scene) {
       pinch.cursor &&
       Math.hypot(pinch.cursor[0] * W - x, pinch.cursor[1] * H - y) < r
 
-    ctx.setLineDash([4, 4])
-    ctx.strokeStyle = hovering ? 'rgba(22,50,79,0.75)' : 'rgba(22,50,79,0.3)'
-    ctx.lineWidth = hovering ? 2 : 1.5
+    // An object genuinely resting here (not being carried) means the target
+    // is filled — checked against real interaction state, not assumed.
+    const occupied = Object.entries(scene.positions).some(([id, p]) => {
+      if (scene.held === id) return false
+      return Math.hypot(p.x * W - x, p.y * H - y) < r * 0.7
+    })
+
+    // Steel while idle (structural, not yet engaged); cyan the moment the
+    // live hand is genuinely over it; aurora green once something has
+    // actually come to rest here — three real states, not a decoration.
+    const color = occupied
+      ? 'rgba(20,122,92,0.85)'
+      : hovering
+        ? 'rgba(3,125,146,0.9)'
+        : 'rgba(92,114,144,0.55)'
+    ctx.setLineDash(occupied ? [] : [4, 4])
+    ctx.strokeStyle = color
+    ctx.lineWidth = hovering || occupied ? 2.25 : 1.75
     ctx.beginPath()
     ctx.arc(x, y, r, 0, Math.PI * 2)
     ctx.stroke()
     ctx.setLineDash([])
 
-    ctx.fillStyle = 'rgba(22,50,79,0.55)'
-    ctx.font = `500 ${Math.max(8, W * 0.009)}px "IBM Plex Mono", monospace`
+    // Reticle ticks — the same targeting idiom Demo Replay's canvas uses,
+    // so a target zone reads identically in both feed modes.
+    const tick = Math.max(3.5, W * 0.006)
+    const gap = tick * 0.7
+    ctx.lineWidth = 1.5
+    ctx.strokeStyle = color
+    ;[[0, -1], [0, 1], [-1, 0], [1, 0]].forEach(([dx, dy]) => {
+      ctx.beginPath()
+      ctx.moveTo(x + dx * (r + gap), y + dy * (r + gap))
+      ctx.lineTo(x + dx * (r + gap + tick), y + dy * (r + gap + tick))
+      ctx.stroke()
+    })
+
+    ctx.fillStyle = 'rgba(92,114,144,0.85)'
+    ctx.font = `600 ${Math.max(9, W * 0.0095)}px "IBM Plex Mono", monospace`
     ctx.textAlign = 'center'
-    ctx.fillText(zone.label, x, y + r + 14)
+    ctx.fillText(`TARGET · ${zone.label}`, x, y + r + 15)
   }
 }
 
@@ -178,16 +208,26 @@ function drawObjects(ctx, W, H, scene) {
     const x = p.x * W
     const y = p.y * H
     const isHeld = scene.held === def.id
-    const s = isHeld ? size * 1.12 : size
+    const s = isHeld ? size * 1.15 : size
 
     if (isHeld) {
-      ctx.shadowColor = 'rgba(22,50,79,0.35)'
-      ctx.shadowBlur = 14
-      ctx.shadowOffsetY = 4
+      // Tracking indicator — a thin cyan ring around a genuinely carried
+      // object, distinct from the object's own colour.
+      ctx.strokeStyle = 'rgba(3,125,146,0.7)'
+      ctx.lineWidth = 1.5
+      ctx.setLineDash([3, 3])
+      ctx.beginPath()
+      ctx.arc(x, y, s * 0.82, 0, Math.PI * 2)
+      ctx.stroke()
+      ctx.setLineDash([])
+
+      ctx.shadowColor = 'rgba(18,43,71,0.4)'
+      ctx.shadowBlur = 16
+      ctx.shadowOffsetY = 5
     }
     ctx.fillStyle = def.color
     ctx.strokeStyle = def.edge
-    ctx.lineWidth = 1
+    ctx.lineWidth = 1.25
     ctx.beginPath()
     ctx.roundRect(x - s / 2, y - s / 2, s, s, 4)
     ctx.fill()
@@ -195,13 +235,16 @@ function drawObjects(ctx, W, H, scene) {
     ctx.shadowBlur = 0
     ctx.shadowOffsetY = 0
 
-    ctx.fillStyle = 'rgba(255,255,255,0.35)'
+    ctx.fillStyle = 'rgba(255,255,255,0.4)'
     ctx.beginPath()
     ctx.roundRect(x - s / 2 + 3, y - s / 2 + 3, s * 0.4, s * 0.28, 2)
     ctx.fill()
   }
 }
 
+// This cursor is the one thing on screen that is genuinely live-tracked
+// (real landmarks, this frame) rather than known-by-construction or
+// scripted, so it is the one place cyan marks a literal tracking indicator.
 function drawCursor(ctx, W, H, pinch) {
   const x = pinch.cursor[0] * W
   const y = pinch.cursor[1] * H
@@ -209,14 +252,14 @@ function drawCursor(ctx, W, H, pinch) {
 
   ctx.beginPath()
   ctx.arc(x, y, r, 0, Math.PI * 2)
-  ctx.fillStyle = pinch.pinching ? 'rgba(22,50,79,0.85)' : 'rgba(22,50,79,0.16)'
+  ctx.fillStyle = pinch.pinching ? 'rgba(3,125,146,0.88)' : 'rgba(3,125,146,0.18)'
   ctx.fill()
-  ctx.strokeStyle = 'rgba(22,50,79,0.65)'
+  ctx.strokeStyle = 'rgba(3,125,146,0.7)'
   ctx.lineWidth = 1.5
   ctx.stroke()
 
   if (!pinch.pinching) {
-    ctx.strokeStyle = 'rgba(22,50,79,0.45)'
+    ctx.strokeStyle = 'rgba(3,125,146,0.5)'
     ctx.lineWidth = 1
     ctx.beginPath(); ctx.moveTo(x - 15, y); ctx.lineTo(x + 15, y); ctx.stroke()
     ctx.beginPath(); ctx.moveTo(x, y - 15); ctx.lineTo(x, y + 15); ctx.stroke()

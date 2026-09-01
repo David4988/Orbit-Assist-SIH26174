@@ -32,7 +32,7 @@ function Mark({ status }) {
  * open in amber until they're repaired. That single object covers current
  * step, next step, timeline and per-step status at once.
  */
-export default function Procedure({ steps, currentIndex, status, alert }) {
+export default function Procedure({ steps, currentIndex, status, alert, elapsed = 0 }) {
   const running = status === 'running' || status === 'paused'
 
   return (
@@ -74,6 +74,13 @@ export default function Procedure({ steps, currentIndex, status, alert }) {
                     className="step-detail"
                   >
                     <span className="code">{step.verb}_{step.object}</span>
+                    <span className="meta-rule" />
+                    <span className="meta">
+                      <span className="meta-label">T+</span>
+                      <span className="meta-value">{formatClock(elapsed)}</span>
+                    </span>
+                    <span className="meta-rule" />
+                    <span className="meta"><span className="meta-value meta-value--active">Active</span></span>
                   </motion.div>
                 )}
               </AnimatePresence>

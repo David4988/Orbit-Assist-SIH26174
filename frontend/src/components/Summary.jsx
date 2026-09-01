@@ -38,7 +38,7 @@ export default function Summary({ steps, events, duration, runId }) {
       transition={{ duration: 0.4, ease: EASE }}
     >
       <div className="summary-head">
-        <span className="eyebrow">Experiment complete</span>
+        <span className="eyebrow">Run · Complete</span>
         <h2>Procedure executed successfully</h2>
       </div>
 

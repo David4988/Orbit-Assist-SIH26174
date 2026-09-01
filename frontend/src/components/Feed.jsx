@@ -6,6 +6,17 @@ import './Feed.css'
 
 const EASE = [0.22, 1, 0.36, 1]
 
+// Mirrors EventLog's TONE map — the same event, the same color, wherever it
+// appears on the page.
+const OUTCOME_TONE = {
+  correct: 'go',
+  skipped: 'hold',
+  done_late: 'go',
+  wrong_object: 'stop',
+  wrong_action: 'stop',
+  unknown: 'hold',
+}
+
 /* ─────────────────────────────────────────────────────────────────────────────
    Canvas Demo Replay Fallback
 
@@ -95,18 +106,19 @@ function DemoCanvas({ clockRef, canvasRef }) {
       ctx.lineWidth = 1.5
       ctx.beginPath(); ctx.moveTo(0, bY); ctx.lineTo(W, bY); ctx.stroke()
 
-      // ── container / outer box ──
+      // ── container / outer box ── a whisper of orbital blue, not plain
+      // white/grey — controlled payload hardware, not a generic UI box.
       const containerOpen = scene.open
-      ctx.strokeStyle = '#8a9088'
+      ctx.strokeStyle = 'rgba(18,43,71,0.7)'
       ctx.lineWidth = 2
-      ctx.fillStyle = 'rgba(255,255,255,0.55)'
+      ctx.fillStyle = containerOpen ? 'rgba(27,86,168,0.05)' : 'rgba(27,86,168,0.09)'
       ctx.beginPath()
       ctx.roundRect(cX - cW / 2, cY, cW, cH, 4)
       ctx.fill(); ctx.stroke()
 
       // lid
       if (!containerOpen) {
-        ctx.fillStyle = '#b0b5ab'
+        ctx.fillStyle = '#c3cddb'
         ctx.beginPath()
         ctx.roundRect(cX - cW / 2 - 2, cY - 8, cW + 4, 12, 3)
         ctx.fill(); ctx.stroke()
@@ -115,7 +127,7 @@ function DemoCanvas({ clockRef, canvasRef }) {
         ctx.save()
         ctx.translate(cX - cW / 2, cY)
         ctx.rotate(-0.45)
-        ctx.fillStyle = '#b0b5ab'
+        ctx.fillStyle = '#c3cddb'
         ctx.beginPath()
         ctx.roundRect(0, -12, cW + 4, 12, 3)
         ctx.fill(); ctx.stroke()
@@ -123,26 +135,17 @@ function DemoCanvas({ clockRef, canvasRef }) {
       }
 
       // label on container
-      ctx.fillStyle = '#6b7068'
-      ctx.font = `500 ${Math.max(8, W * 0.012)}px "IBM Plex Mono", monospace`
+      ctx.fillStyle = 'rgba(18,43,71,0.75)'
+      ctx.font = `600 ${Math.max(9, W * 0.012)}px "IBM Plex Mono", monospace`
       ctx.textAlign = 'center'
-      ctx.fillText('CONTAINER', cX, bY - 10)
+      ctx.fillText('PAYLOAD CONTAINER', cX, bY - 10)
 
-      // ── placement markers ──
+      // ── placement targets ──
+      // Centred on the marker itself — a box resting here sits in the
+      // middle of the ring, not at its edge.
       const mR = g.markerR
-
-      // Red marker
-      ctx.strokeStyle = 'rgba(166,43,31,0.35)'
-      ctx.lineWidth = 1.5
-      ctx.setLineDash([4, 4])
-      ctx.beginPath(); ctx.arc(g.redMarker.x, g.redMarker.y + mR, mR, 0, Math.PI * 2); ctx.stroke()
-      ctx.setLineDash([])
-
-      // Yellow marker
-      ctx.strokeStyle = 'rgba(178,106,0,0.35)'
-      ctx.setLineDash([4, 4])
-      ctx.beginPath(); ctx.arc(g.yellowMarker.x, g.yellowMarker.y + mR, mR, 0, Math.PI * 2); ctx.stroke()
-      ctx.setLineDash([])
+      drawTargetZone(ctx, g.redMarker.x, g.redMarker.y, mR, 'RED', isAtRest(scene.boxes.RED, g.redMarker))
+      drawTargetZone(ctx, g.yellowMarker.x, g.yellowMarker.y, mR, 'YELLOW', isAtRest(scene.boxes.YELLOW, g.yellowMarker))
 
       // ── hand cursor ──
       // Position comes straight from the beats, so the hand is always on the
@@ -210,26 +213,67 @@ function DemoCanvas({ clockRef, canvasRef }) {
   return null
 }
 
-/** One coloured box. Carried boxes are raised and shadowed; pushed boxes are
-    deliberately not, so a shove never reads as a pick-up. */
+/** Has this box actually come to rest at this marker (not mid-flight, not
+    carried)? Real scene state, not a guess — used to light the target green. */
+function isAtRest(box, marker) {
+  return box.visible && !box.lifted && Math.abs(box.x - marker.x) < 1 && Math.abs(box.y - marker.y) < 1
+}
+
+/** A placement target: a reference circle with four short reticle ticks and
+    a designation underneath — steel while empty, aurora green once a box
+    has genuinely come to rest there. The same idiom Live Hand's overlay
+    uses, so a target zone reads identically in both feed modes. */
+function drawTargetZone(ctx, cx, cy, r, label, occupied) {
+  const color = occupied ? 'rgba(20,122,92,0.85)' : 'rgba(92,114,144,0.55)'
+  ctx.strokeStyle = color
+  ctx.lineWidth = occupied ? 2.25 : 1.75
+  ctx.setLineDash(occupied ? [] : [4, 4])
+  ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke()
+  ctx.setLineDash([])
+
+  const tick = 4.5
+  const gap = 3
+  ctx.lineWidth = 1.5
+  ;[[0, -1], [0, 1], [-1, 0], [1, 0]].forEach(([dx, dy]) => {
+    ctx.beginPath()
+    ctx.moveTo(cx + dx * (r + gap), cy + dy * (r + gap))
+    ctx.lineTo(cx + dx * (r + gap + tick), cy + dy * (r + gap + tick))
+    ctx.stroke()
+  })
+
+  ctx.fillStyle = 'rgba(92,114,144,0.85)'
+  ctx.font = `600 9px "IBM Plex Mono", monospace`
+  ctx.textAlign = 'center'
+  ctx.fillText(`TARGET · ${label}`, cx, cy + r + 16)
+}
+
+/** One coloured box. Carried boxes are raised, shadowed and ringed with a
+    cyan tracking indicator; pushed boxes get none of that, so a shove never
+    reads as a pick-up. */
 function drawBox(ctx, box, fill, edge) {
   if (!box.visible) return
-  const s = box.lifted ? BOX * 1.12 : BOX
+  const s = box.lifted ? BOX * 1.15 : BOX
   if (box.lifted) {
-    ctx.shadowColor = 'rgba(22,50,79,0.35)'
-    ctx.shadowBlur = 12
-    ctx.shadowOffsetY = 4
+    ctx.strokeStyle = 'rgba(3,125,146,0.7)'
+    ctx.lineWidth = 1.5
+    ctx.setLineDash([3, 3])
+    ctx.beginPath(); ctx.arc(box.x, box.y, s * 0.82, 0, Math.PI * 2); ctx.stroke()
+    ctx.setLineDash([])
+
+    ctx.shadowColor = 'rgba(18,43,71,0.4)'
+    ctx.shadowBlur = 14
+    ctx.shadowOffsetY = 5
   }
   ctx.fillStyle = fill
   ctx.strokeStyle = edge
-  ctx.lineWidth = 1
+  ctx.lineWidth = 1.25
   ctx.beginPath()
   ctx.roundRect(box.x - s / 2, box.y - s / 2, s, s, 3)
   ctx.fill(); ctx.stroke()
   ctx.shadowBlur = 0
   ctx.shadowOffsetY = 0
 
-  ctx.fillStyle = 'rgba(255,255,255,0.35)'
+  ctx.fillStyle = 'rgba(255,255,255,0.4)'
   ctx.beginPath()
   ctx.roundRect(box.x - s / 2 + 2, box.y - s / 2 + 2, s * 0.45, s * 0.3, 2)
   ctx.fill()
@@ -392,6 +436,19 @@ export default function Feed({ status, onClock, videoRef, lastEvent, feedMode, o
 
   const replayBadgeDot = status === 'running' ? status : status === 'paused' ? 'paused' : (hasVideo === false ? 'canvas' : 'idle')
 
+  // The badge's second line — what the feed is actually doing right now, in
+  // the operator's own terms rather than a raw mode name.
+  const feedDetail =
+    feedMode === 'replay'
+      ? hasVideo === false
+        ? 'Scenario synchronized'
+        : 'Fixed payload view'
+      : camState === 'active'
+        ? 'Hand tracking active'
+        : camState === 'requesting'
+          ? 'Acquiring signal'
+          : 'Standby'
+
   return (
     <section className="feed">
       {/* ── mode toggle ── */}
@@ -400,7 +457,7 @@ export default function Feed({ status, onClock, videoRef, lastEvent, feedMode, o
           pinch) could both drive the engine at once. Reset first. */}
       <div className="feed-modes" role="group" aria-label="Feed mode">
         <button
-          className={`feed-mode-btn ${feedMode === 'replay' ? 'feed-mode-btn--active' : ''}`}
+          className={`feed-mode-btn feed-mode-btn--blue ${feedMode === 'replay' ? 'feed-mode-btn--active' : ''}`}
           onClick={() => onFeedModeChange('replay')}
           aria-pressed={feedMode === 'replay'}
           disabled={status !== 'idle'}
@@ -409,7 +466,7 @@ export default function Feed({ status, onClock, videoRef, lastEvent, feedMode, o
           Demo Replay
         </button>
         <button
-          className={`feed-mode-btn ${feedMode === 'camera' ? 'feed-mode-btn--active' : ''}`}
+          className={`feed-mode-btn feed-mode-btn--cyan ${feedMode === 'camera' ? 'feed-mode-btn--active' : ''}`}
           onClick={() => onFeedModeChange('camera')}
           aria-pressed={feedMode === 'camera'}
           disabled={status !== 'idle'}
@@ -420,6 +477,11 @@ export default function Feed({ status, onClock, videoRef, lastEvent, feedMode, o
       </div>
 
       {/* ── frame ── */}
+      <div className="feed-frame-shell">
+      <span className="feed-corner feed-corner--tl" aria-hidden="true" />
+      <span className="feed-corner feed-corner--tr" aria-hidden="true" />
+      <span className="feed-corner feed-corner--bl" aria-hidden="true" />
+      <span className="feed-corner feed-corner--br" aria-hidden="true" />
       <div className="feed-frame">
 
         {/* Replay: real video */}
@@ -554,36 +616,41 @@ export default function Feed({ status, onClock, videoRef, lastEvent, feedMode, o
           )}
         </AnimatePresence>
 
-        {/* Badge — bottom left */}
+        {/* Badge — bottom left. Two tiers: the fixed device ID (what it is)
+            and what it is presently doing (why the picture looks the way
+            it does) — the same distinction a payload console would make. */}
         <div className="feed-badge">
           {feedMode === 'replay' ? (
-            <>
-              <span className="feed-dot" data-status={replayBadgeDot} />
-              <span className="code">
-                {hasVideo === false ? 'CAM-01 · CANVAS REPLAY' : 'CAM-01 · REPLAY'}
-              </span>
-            </>
+            <span className="feed-dot" data-status={replayBadgeDot} />
           ) : (
-            <>
-              <span className="feed-dot" data-cam={camBadgeDot} />
-              <span className="code">CAM-01 · {camBadgeText}</span>
-            </>
+            <span className="feed-dot" data-cam={camBadgeDot} />
           )}
+          <span className="feed-badge-text">
+            <span className="code feed-badge-id">
+              CAM-01 ·{' '}
+              <span className={showCameraFeed ? 'feed-badge-live' : ''}>
+                {feedMode === 'replay' ? 'REPLAY' : camBadgeText}
+              </span>
+            </span>
+            <span className="feed-badge-detail">{feedDetail}</span>
+          </span>
         </div>
 
         {/* Perception label — top right — visible always, and precise:
             Live Hand's hand tracking is a real pretrained model; the boxes
             it interacts with are still virtual/known, not perceived, and
-            the procedure judgement underneath is deterministic, not ML. */}
-        <div className="feed-perception-label">
+            the procedure judgement underneath is deterministic, not ML.
+            The cyan wash appears only once the signal is genuinely live. */}
+        <div className={`feed-perception-label ${showCameraFeed ? 'feed-perception-label--live' : ''}`}>
           <span className="code">
             {feedMode === 'camera' ? 'PERCEPTION · HAND TRACKING' : 'PERCEPTION · SIMULATED'}
           </span>
         </div>
       </div>
+      </div>
 
       {/* ── observed action ── */}
-      <div className="observed">
+      <div className="observed panel">
         <span className="eyebrow">Observed action</span>
         {lastEvent ? (
           <motion.div
@@ -593,7 +660,15 @@ export default function Feed({ status, onClock, videoRef, lastEvent, feedMode, o
             transition={{ duration: 0.22, ease: EASE }}
             className="observed-row"
           >
-            <span className="observed-action">{lastEvent.action}</span>
+            <span className="observed-action">
+              <motion.span
+                className={`observed-outcome-dot observed-outcome-dot--${OUTCOME_TONE[lastEvent.kind] || 'ink'}`}
+                initial={{ scale: 0.4, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ duration: 0.24, ease: EASE }}
+              />
+              {lastEvent.action}
+            </span>
             <span className="observed-conf num">
               {lastEvent.confidence.toFixed(2)}
               <em>confidence</em>

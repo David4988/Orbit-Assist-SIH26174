@@ -1,99 +1,147 @@
+/* A thin signal strip across the very top of the viewport — the identity
+   colours declare themselves before a single word does. Flat gradient,
+   3px, no glow: a status rail, not a hero banner. */
+.top-rail {
+  position: fixed; top: 0; left: 0; right: 0; height: 3px;
+  background: var(--gradient-signal);
+  z-index: 200;
+}
+
 .app {
   min-height: 100%;
   display: flex; flex-direction: column;
   max-width: 1500px; margin: 0 auto;
-  padding: 0 40px;
+  padding: 3px 32px 0;
 }
 
 /* ---------- header ---------- */
 .header {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 26px 0 20px;
-  border-bottom: 1px solid var(--rule);
+  flex-wrap: wrap; gap: 10px 20px;
+  padding: 22px 0 18px;
+  border-bottom: 1.5px solid var(--rule);
 }
 
 .brand { display: flex; align-items: center; gap: 14px; }
+
+/* The wordmark's orbit — see OrbitMark.jsx. A ring (the body), a fixed
+   centre (the payload) and one satellite point that only travels while a
+   run is active. */
 .brand-mark {
-  width: 26px; height: 26px; border-radius: 50%;
-  border: 1.5px solid var(--navy);
+  display: block;
+  width: 30px; height: 30px; border-radius: 50%;
+  border: 2px solid var(--navy);
   position: relative; flex-shrink: 0;
 }
-.brand-mark::after {
-  content: ''; position: absolute;
-  width: 7px; height: 7px; border-radius: 50%;
+.brand-mark-core {
+  position: absolute; width: 7px; height: 7px; border-radius: 50%;
   background: var(--navy);
   top: 50%; left: 50%; transform: translate(-50%, -50%);
 }
-.brand h1 {
-  margin: 0; font-size: 16px; font-weight: 600;
-  letter-spacing: 0.03em; text-transform: uppercase;
+.brand-mark-orbit {
+  position: absolute; inset: -2px;
+  display: block;
 }
-.brand p { margin: 1px 0 0; font-size: 12.5px; color: var(--ink-3); }
+/* Steel while idle (parked, no signal); cyan the moment a run goes active —
+   flat colour only, no glow, so the state reads from hue, not brightness. */
+.brand-mark-sat {
+  position: absolute; top: -1.5px; left: 50%;
+  width: 4px; height: 4px; border-radius: 50%;
+  background: var(--steel);
+  transform: translateX(-50%);
+  transition: background 0.3s var(--ease);
+}
+.brand-mark-sat--live { background: var(--cyan); }
 
-.header-meta { display: flex; align-items: center; gap: 14px; }
+.brand h1 {
+  margin: 0; font-size: 18px; font-weight: 700;
+  letter-spacing: 0.03em; text-transform: uppercase;
+  color: var(--navy);
+}
+.brand p {
+  margin: 1px 0 0; font-size: 11.5px; color: var(--ink-3);
+  font-family: var(--mono); letter-spacing: 0.03em;
+}
+
+/* ---------- header mission strip ---------- */
+.header-meta { display: flex; align-items: center; gap: 12px; }
+
+/* The headline the eye lands on first — bigger, sans, a filled bullet next
+   to it, not another row of small mono telemetry. */
+.system-status { display: inline-flex; align-items: center; gap: 8px; }
+.system-status-text {
+  font-size: 13px; font-weight: 600; letter-spacing: -0.005em;
+  color: var(--ink-2);
+}
+.system-status-text--active { color: var(--blue); }
+.system-status-text--go { color: var(--go); }
+.system-status-text--hold { color: var(--hold); }
+
+.meta-rule--tall { height: 18px; background: var(--rule); }
 
 .chip {
   display: inline-flex; align-items: center; gap: 7px;
-  padding: 5px 11px;
+  padding: 6px 12px;
   background: none;
   border: 1px solid var(--rule);
   border-radius: 100px;
-  font-family: var(--mono); font-size: 10.5px;
-  letter-spacing: 0.09em; text-transform: uppercase;
+  font-family: var(--mono); font-size: 11px;
+  letter-spacing: 0.08em; text-transform: uppercase;
   color: var(--ink-2); cursor: pointer;
-  transition: border-color 0.15s ease, color 0.15s ease;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
 }
 .chip:hover { border-color: var(--ink-3); color: var(--ink); }
+/* Simulated perception is neutral (steel); a genuinely live signal is cyan —
+   mirrors the orbit mark's own idle/live colour rule. */
 .chip-dot {
-  width: 5px; height: 5px; border-radius: 50%;
-  background: var(--hold);
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--steel);
 }
-.chip-dot--live { background: var(--navy); }
-
-.conn {
-  font-family: var(--mono); font-size: 10.5px;
-  letter-spacing: 0.09em; text-transform: uppercase;
-  color: var(--ink-3);
-}
-.conn--on { color: var(--ink-2); }
+.chip-dot--live { background: var(--cyan); box-shadow: 0 0 0 3px var(--cyan-wash); }
 
 /* ---------- main ---------- */
 .main {
   flex: 1;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
-  gap: 52px;
-  padding: 30px 0 34px;
+  /* The feed is the strongest visual anchor — give it the larger column. */
+  grid-template-columns: minmax(0, 1.12fr) minmax(0, 1fr);
+  gap: 40px;
+  padding: 26px 0 30px;
   align-items: start;
 }
 
 .col { min-width: 0; }
-.col--feed { display: flex; flex-direction: column; gap: 26px; }
-.col--procedure { display: flex; flex-direction: column; gap: 20px; }
+.col--feed { display: flex; flex-direction: column; gap: 20px; }
+.col--procedure { display: flex; flex-direction: column; gap: 18px; }
 
 .proc-head {
   display: flex; align-items: flex-end; justify-content: space-between;
   gap: 20px;
 }
+.proc-head-label { display: flex; align-items: baseline; gap: 10px; }
 .proc-head h2 {
-  margin: 7px 0 0;
-  font-size: 19px; font-weight: 500; letter-spacing: -0.018em;
-  color: var(--ink);
+  margin: 6px 0 0;
+  font-size: 22px; font-weight: 600; letter-spacing: -0.018em;
+  color: var(--navy);
 }
 .proc-clock { text-align: right; }
 .proc-time {
   display: block; margin-top: 5px;
-  font-family: var(--mono); font-size: 19px; color: var(--ink);
+  font-family: var(--mono); font-size: 21px; font-weight: 500; color: var(--ink);
 }
 
 .proc-body { display: flex; flex-direction: column; gap: 18px; }
 
 .up-next {
-  display: flex; align-items: baseline; gap: 14px;
-  padding-top: 15px;
-  border-top: 1px solid var(--rule);
+  display: flex; align-items: baseline; gap: 12px;
+  padding: 12px 14px;
+  border-top: none;
+  background: var(--steel-soft);
+  border-radius: 6px;
+  border-left: 2px solid var(--steel);
 }
-.up-next-text { font-size: 13.5px; color: var(--ink-2); }
+.up-next .eyebrow { color: var(--steel); }
+.up-next-text { font-size: 15px; font-weight: 500; color: var(--ink-2); }
 
 /* ---------- controls ---------- */
 .controls {
@@ -105,24 +153,31 @@
 
 .btn {
   display: inline-flex; align-items: center; gap: 7px;
-  padding: 9px 17px;
+  padding: 10px 18px;
   border: 1px solid var(--rule);
-  border-radius: 5px;
+  border-radius: 6px;
   background: var(--card);
-  font-size: 13.5px; font-weight: 500;
+  font-size: 14px; font-weight: 500;
   color: var(--ink);
   cursor: pointer;
   text-decoration: none;
-  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
 }
 .btn:hover { border-color: var(--ink-3); }
 
+/* Primary actions are orbital blue — navy stays reserved for brand identity.
+   A little elevation, no glow: the button should feel pressed forward, not lit. */
 .btn--primary {
-  background: var(--navy);
-  border-color: var(--navy);
+  background: var(--blue);
+  border-color: var(--blue);
   color: #fff;
+  font-weight: 600;
+  box-shadow: 0 2px 10px -2px rgba(27, 86, 168, 0.4);
 }
-.btn--primary:hover { background: #1d3f63; border-color: #1d3f63; }
+.btn--primary:hover {
+  background: #164885; border-color: #164885;
+  box-shadow: 0 3px 14px -2px rgba(27, 86, 168, 0.5);
+}
 
 .btn--ghost {
   background: none;
